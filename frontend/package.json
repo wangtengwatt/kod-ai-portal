@@ -1,0 +1,33 @@
+{
+  "name": "kod-portal-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "kod 官网前端 —— 对标 chatboxai.app",
+  "scripts": {
+    "dev": "rsbuild dev",
+    "build": "rsbuild build",
+    "preview": "rsbuild preview",
+    "typecheck": "tsc -b",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint . --fix"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.101.2",
+    "@tanstack/react-router": "^1.170.17",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@rsbuild/core": "^2.1.4",
+    "@rsbuild/plugin-react": "^2.1.0",
+    "@rsbuild/plugin-tailwindcss": "^2.0.3",
+    "@tanstack/router-plugin": "^1.168.19",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "oxlint": "^1.0.0",
+    "tailwindcss": "^4.3.2",
+    "typescript": "^5.9.0"
+  }
+}

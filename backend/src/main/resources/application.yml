@@ -1,0 +1,28 @@
+# kod 官网后端 —— 主配置
+# 通过 spring.profiles.active 切换环境：dev（本地）/ test（测试）/ prod（正式）
+spring:
+  application:
+    name: kod-portal-backend
+  profiles:
+    # 默认激活本地开发环境；可用 --spring.profiles.active=test/prod 覆盖
+    active: dev
+
+server:
+  port: 8080
+
+# MyBatis-Plus 通用配置
+mybatis-plus:
+  # mapper xml 位置（如使用 xml）
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    # 驼峰命名映射
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      # 主键策略：雪花算法
+      id-type: assign_id
+
+# 日志级别
+logging:
+  level:
+    com.kod: info

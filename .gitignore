@@ -1,0 +1,26 @@
+# ===== 通用 =====
+.DS_Store
+*.log
+.env
+.env.local
+.env.*.local
+
+# IDE / 编辑器
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# ===== 前端 (frontend/) =====
+node_modules/
+frontend/dist/
+frontend/node_modules/
+frontend/.rsbuild/
+frontend/src/routeTree.gen.ts
+*.tsbuildinfo
+
+# ===== 后端 (backend/) =====
+target/
+backend/target/
+!.mvn/wrapper/maven-wrapper.jar
+*.class

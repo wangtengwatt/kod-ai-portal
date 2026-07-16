@@ -1,0 +1,47 @@
+name: kod-ai-portal
+
+# 仅部署前端 + 后端两个容器；MySQL / Redis 使用已有的外部实例（通过 .env 配置）。
+
+services:
+  # 后端 Spring Boot
+  backend:
+    build: ./backend
+    image: kod-backend:latest
+    container_name: kod-backend
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      # 外部已有的 MySQL
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT:-3306}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-kod}
+      MYSQL_USERNAME: ${MYSQL_USERNAME}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      # 外部已有的 Redis
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # JWT
+      JWT_SECRET: ${JWT_SECRET}
+      TZ: Asia/Shanghai
+    ports:
+      - "8080:8080"
+    networks:
+      - kod-net
+
+  # 前端 Nginx（托管静态资源 + 反代 /api → backend）
+  frontend:
+    build: ./frontend
+    image: kod-frontend:latest
+    container_name: kod-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - kod-net
+
+networks:
+  kod-net:
+    driver: bridge

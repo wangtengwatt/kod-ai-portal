@@ -1,3 +1,5 @@
+import { Link } from '@tanstack/react-router'
+
 /** 官网页脚：品牌信息与栏目链接。 */
 export function Footer() {
   return (
@@ -20,25 +22,62 @@ export function Footer() {
             <div>
               <h4 className="font-semibold text-gray-900">产品</h4>
               <ul className="mt-3 space-y-2 text-gray-500">
-                <li>产品特性</li>
-                <li>下载</li>
-                <li>定价</li>
+                <li>
+                  <Link to="/features" className="hover:text-brand-600">
+                    产品特性
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/download" className="hover:text-brand-600">
+                    下载
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/pricing" className="hover:text-brand-600">
+                    定价
+                  </Link>
+                </li>
               </ul>
             </div>
             <div>
               <h4 className="font-semibold text-gray-900">资源</h4>
               <ul className="mt-3 space-y-2 text-gray-500">
-                <li>使用文档</li>
-                <li>更新日志</li>
-                <li>常见问题</li>
+                <li>
+                  <Link to="/changelog" className="hover:text-brand-600">
+                    更新日志
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/kod-ai-services-faqs"
+                    className="hover:text-brand-600"
+                  >
+                    常见问题
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/jsjsubmit" className="hover:text-brand-600">
+                    问卷调查
+                  </Link>
+                </li>
               </ul>
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900">关于</h4>
+              <h4 className="font-semibold text-gray-900">加入我们</h4>
               <ul className="mt-3 space-y-2 text-gray-500">
-                <li>关于我们</li>
-                <li>联系我们</li>
-                <li>隐私政策</li>
+                <li>
+                  <Link to="/feedback" className="hover:text-brand-600">
+                    意见反馈
+                  </Link>
+                </li>
+                <li>
+                  <a
+                    href="mailto:fane@vn.com"
+                    className="hover:text-brand-600"
+                  >
+                    fane@vn.com
+                  </a>
+                </li>
               </ul>
             </div>
           </div>

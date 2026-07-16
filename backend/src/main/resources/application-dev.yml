@@ -8,6 +8,10 @@ spring:
   h2:
     console:
       enabled: true
+  # dev 环境自动执行 schema.sql 建表
+  sql:
+    init:
+      mode: always
 
 logging:
   level:

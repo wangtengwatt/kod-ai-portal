@@ -22,6 +22,14 @@ mybatis-plus:
       # 主键策略：雪花算法
       id-type: assign_id
 
+# 业务自定义配置
+kod:
+  jwt:
+    # HS256 密钥（生产环境务必通过环境变量覆盖，长度需 >= 32 字节）
+    secret: ${JWT_SECRET:kod-portal-default-jwt-secret-please-change-in-prod}
+    # token 有效期（毫秒），默认 7 天
+    expire-millis: ${JWT_EXPIRE_MILLIS:604800000}
+
 # 日志级别
 logging:
   level:

@@ -29,10 +29,14 @@ kod-ai-portal/
 
 ### 后端（`backend/`）
 - **语言 / 框架**：Java 17 + Spring Boot 3.3
-- **ORM**：MyBatis-Plus（Spring Boot 3 starter）
+- **ORM / 连接池**：MyBatis-Plus（Spring Boot 3 starter）+ Druid（懒加载）
+- **数据库**：MySQL 8
+- **缓存**：Redis（Lettuce）
+- **鉴权**：JWT（jjwt）+ BCrypt
 - **构建**：Maven
-- **数据库**：dev 使用 H2 内存库（免依赖启动）；test / prod 使用 MySQL
-- **包结构**：`com.kod` 下 `controller` / `service` / `mapper` / `entity` / `config` 分层
+- **包结构**：`com.kod` 下 `controller` / `service` / `mapper` / `entity` / `config` / `common` / `dto` / `util` 分层
+
+> 数据源与 Redis 的默认配置与参考项目 `aiex-model-registry-service` 保持一致（远程 dev 库，懒加载），均支持环境变量覆盖。
 
 ## 环境要求
 
@@ -74,7 +78,25 @@ mvn spring-boot:run -Dspring-boot.run.profiles=test
 java -jar target/kod-portal-backend-0.1.0.jar --spring.profiles.active=prod
 ```
 
-test / prod 环境的数据库连接通过环境变量注入（`DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USERNAME` / `DB_PASSWORD`），不在代码中硬编码。
+数据库与 Redis 连接均通过环境变量覆盖默认值（不在代码中硬编码敏感信息）：
+
+| 环境变量 | 说明 |
+| -------- | ---- |
+| `MYSQL_HOST` / `MYSQL_PORT` / `MYSQL_DATABASE` / `MYSQL_USERNAME` / `MYSQL_PASSWORD` | MySQL 连接 |
+| `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | Redis 连接 |
+| `JWT_SECRET` / `JWT_EXPIRE_MILLIS` | JWT 密钥与有效期 |
+
+建表 SQL 见 `backend/src/main/resources/schema.sql`（MySQL 方言，由迁移脚本执行，应用不自动建表）。本地可用 Docker 快速起依赖：
+
+```bash
+docker run -d --name kod-mysql -e MYSQL_ROOT_PASSWORD=kodroot -e MYSQL_DATABASE=kod -p 3307:3306 mysql:8
+docker run -d --name kod-redis -p 6380:6379 redis:7 redis-server --requirepass kodredis
+mysql -h127.0.0.1 -P3307 -uroot -pkodroot kod < backend/src/main/resources/schema.sql
+
+MYSQL_HOST=127.0.0.1 MYSQL_PORT=3307 MYSQL_DATABASE=kod MYSQL_USERNAME=root MYSQL_PASSWORD=kodroot \
+REDIS_HOST=127.0.0.1 REDIS_PORT=6380 REDIS_PASSWORD=kodredis \
+java -jar backend/target/kod-portal-backend-0.1.0.jar
+```
 
 ## 后端 API
 

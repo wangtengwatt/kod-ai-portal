@@ -6,15 +6,18 @@ import com.kod.dto.LoginRequest;
 import com.kod.dto.LoginResponse;
 import com.kod.entity.RelayStation;
 import com.kod.entity.User;
+import com.kod.config.JwtProperties;
 import com.kod.mapper.UserMapper;
 import com.kod.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 /**
@@ -25,10 +28,15 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class AuthService {
 
+    /** Redis 中 token 缓存 key 前缀。 */
+    private static final String TOKEN_KEY_PREFIX = "kod:token:";
+
     private final UserMapper userMapper;
     private final RelayStationService relayStationService;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final JwtProperties jwtProperties;
+    private final StringRedisTemplate stringRedisTemplate;
 
     /**
      * 登录或注册：
@@ -62,7 +70,7 @@ public class AuthService {
             user.setCreateTime(LocalDateTime.now());
             userMapper.insert(user);
             log.info("注册成功，userId={}, 关联 stationId={}", user.getId(), station.getId());
-            return new LoginResponse(jwtUtil.generateToken(user.getId()), true);
+            return new LoginResponse(issueToken(user.getId()), true);
         }
 
         // 已存在用户：校验密码，邀请码不生效
@@ -71,6 +79,28 @@ public class AuthService {
             throw new BizException(401, "邮箱或密码错误");
         }
         log.info("登录成功，userId={}", user.getId());
-        return new LoginResponse(jwtUtil.generateToken(user.getId()), false);
+        return new LoginResponse(issueToken(user.getId()), false);
+    }
+
+    /**
+     * 生成 token，并尽力将其写入 Redis（带与 token 一致的 TTL）。
+     *
+     * <p>Redis 写入为尽力而为：即便 Redis 不可用也不影响登录返回 token。</p>
+     *
+     * @param userId 用户主键
+     * @return JWT token
+     */
+    private String issueToken(Long userId) {
+        String token = jwtUtil.generateToken(userId);
+        try {
+            stringRedisTemplate.opsForValue().set(
+                    TOKEN_KEY_PREFIX + userId,
+                    token,
+                    Duration.ofMillis(jwtProperties.getExpireMillis()));
+            log.debug("token 已写入 Redis，userId={}", userId);
+        } catch (Exception e) {
+            log.warn("写入 Redis token 失败（不影响登录）：{}", e.getMessage());
+        }
+        return token;
     }
 }

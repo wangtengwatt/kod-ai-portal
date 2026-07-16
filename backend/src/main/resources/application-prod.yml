@@ -1,11 +1,6 @@
-# 正式环境：MySQL，连接信息通过环境变量注入（严禁硬编码敏感信息）
-spring:
-  datasource:
-    url: jdbc:mysql://${DB_HOST}:${DB_PORT:3306}/${DB_NAME}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=true
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-
+# 正式环境
+# 数据源与 Redis 连接信息、JWT 密钥务必通过环境变量注入（MYSQL_* / REDIS_* / JWT_SECRET），
+# 严禁使用默认值上生产。
 logging:
   level:
     com.kod: warn

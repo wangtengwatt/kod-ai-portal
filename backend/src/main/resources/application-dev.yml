@@ -1,18 +1,7 @@
-# 本地开发环境：使用 H2 内存数据库，无需外部数据库即可启动
-spring:
-  datasource:
-    url: jdbc:h2:mem:kod;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: ""
-  h2:
-    console:
-      enabled: true
-  # dev 环境自动执行 schema.sql 建表
-  sql:
-    init:
-      mode: always
-
+# 本地开发环境
+# 数据源与 Redis 沿用 application.yml 的默认值（远程 dev 库），如需本地库用环境变量覆盖：
+#   MYSQL_HOST / MYSQL_PORT / MYSQL_DATABASE / MYSQL_USERNAME / MYSQL_PASSWORD
+#   REDIS_HOST / REDIS_PORT / REDIS_PASSWORD
 logging:
   level:
     com.kod: debug

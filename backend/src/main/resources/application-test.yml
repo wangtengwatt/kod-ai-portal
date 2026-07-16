@@ -1,11 +1,5 @@
-# 测试环境：MySQL，连接信息通过环境变量注入（不硬编码敏感信息）
-spring:
-  datasource:
-    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:kod}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    username: ${DB_USERNAME:kod}
-    password: ${DB_PASSWORD:}
-
+# 测试环境
+# 数据源与 Redis 连接信息通过环境变量注入（MYSQL_* / REDIS_*），不硬编码敏感信息。
 logging:
   level:
     com.kod: info

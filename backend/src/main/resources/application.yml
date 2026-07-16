@@ -1,22 +1,44 @@
 # kod 官网后端 —— 主配置
 # 通过 spring.profiles.active 切换环境：dev（本地）/ test（测试）/ prod（正式）
+# 数据源与 Redis 默认值与参考项目 aiex-model-registry-service 保持一致（远程 dev 库），
+# 各项均支持环境变量覆盖：${ENV:默认值}。
+server:
+  port: ${SERVER_PORT:8080}
+
 spring:
   application:
     name: kod-portal-backend
   profiles:
     # 默认激活本地开发环境；可用 --spring.profiles.active=test/prod 覆盖
     active: dev
-
-server:
-  port: 8080
+  # 数据源（Druid 懒加载，启动时不会真正建连）
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    url: jdbc:mysql://${MYSQL_HOST:18.139.134.29}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:kod}?characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true&autoReconnect=true&rewriteBatchedStatements=true
+    username: ${MYSQL_USERNAME:aiex_dev}
+    password: ${MYSQL_PASSWORD:dHEe7LVClq2sIYRgnisR}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  # Redis（Lettuce 懒加载，启动时不会真正建连）
+  data:
+    redis:
+      host: ${REDIS_HOST:18.139.134.29}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:Fj41mxAfMOJJBctE19jj}
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 30
+          min-idle: 5
+          max-wait: 10s
 
 # MyBatis-Plus 通用配置
 mybatis-plus:
-  # mapper xml 位置（如使用 xml）
-  mapper-locations: classpath*:/mapper/**/*.xml
   configuration:
+    # 开启 sql 日志（与参考项目一致）
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     # 驼峰命名映射
     map-underscore-to-camel-case: true
+  mapper-locations: classpath*:mapper/**/*.xml
   global-config:
     db-config:
       # 主键策略：雪花算法

@@ -34,10 +34,7 @@ function HomePage() {
       {/* Hero 区 */}
       <section className="relative overflow-hidden">
         <div className="mx-auto max-w-6xl px-6 py-24 text-center">
-          <span className="inline-flex items-center rounded-full bg-brand-50 px-4 py-1.5 text-sm font-medium text-brand-700">
-            基于开源项目 chatbox 二次研发
-          </span>
-          <h1 className="mt-6 text-5xl font-extrabold tracking-tight text-gray-900 sm:text-6xl">
+          <h1 className="text-5xl font-extrabold tracking-tight text-gray-900 sm:text-6xl">
             kod —— 你的
             <span className="text-brand-600"> AI 助手</span>
             客户端

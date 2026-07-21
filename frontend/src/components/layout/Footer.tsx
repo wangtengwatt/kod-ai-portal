@@ -84,7 +84,7 @@ export function Footer() {
         </div>
 
         <div className="mt-10 border-t border-gray-200 pt-6 text-center text-xs text-gray-400">
-          © {new Date().getFullYear()} kod. 基于开源项目 chatbox 二次研发。
+          © {new Date().getFullYear()} kod.
         </div>
       </div>
     </footer>

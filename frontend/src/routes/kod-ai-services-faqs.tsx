@@ -8,7 +8,7 @@ export const Route = createFileRoute('/kod-ai-services-faqs')({
 const faqs = [
   {
     q: 'kod 是什么？',
-    a: 'kod 是一款基于开源项目 chatbox 二次研发的 AI 助手客户端，支持多种大模型，覆盖桌面与移动端。',
+    a: 'kod 是一款 AI 助手客户端，支持多种大模型，覆盖桌面与移动端。',
   },
   {
     q: 'kod 收费吗？',

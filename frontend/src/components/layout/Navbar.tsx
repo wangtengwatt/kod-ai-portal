@@ -5,7 +5,7 @@ export function Navbar() {
   const navItems = [
     { to: '/', label: '首页' },
     { to: '/features', label: '产品特性' },
-    { to: '/pricing', label: '定价' },
+    { to: '/changelog', label: '更新日志' },
     { to: '/download', label: '下载' },
   ] as const
 

@@ -23,6 +23,11 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
       # JWT
       JWT_SECRET: ${JWT_SECRET}
+      # 邮件（SMTP 验证码）
+      MAIL_HOST: ${MAIL_HOST:-smtp.zoho.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
       TZ: Asia/Shanghai
     ports:
       - "8080:8080"

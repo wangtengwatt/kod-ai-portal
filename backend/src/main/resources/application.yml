@@ -30,6 +30,18 @@ spring:
           max-idle: 30
           min-idle: 5
           max-wait: 10s
+  # 邮件（SMTP），所有环境均通过 .env 注入；未配置则验证码仅打印日志
+  mail:
+    host: ${MAIL_HOST:smtp.qq.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:your-email@qq.com}
+    password: ${MAIL_PASSWORD:your-auth-code}  # QQ邮箱需要用授权码，不是登录密码
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
 
 # MyBatis-Plus 通用配置
 mybatis-plus:

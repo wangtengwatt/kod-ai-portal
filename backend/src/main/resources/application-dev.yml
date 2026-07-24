@@ -2,18 +2,6 @@
 # 数据源与 Redis 沿用 application.yml 的默认值（远程 dev 库），如需本地库用环境变量覆盖：
 #   MYSQL_HOST / MYSQL_PORT / MYSQL_DATABASE / MYSQL_USERNAME / MYSQL_PASSWORD
 #   REDIS_HOST / REDIS_PORT / REDIS_PASSWORD
-spring:
-  mail:
-    host: ${MAIL_HOST:smtp.zoho.com}
-    port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
 logging:
   level:
     com.kod: debug

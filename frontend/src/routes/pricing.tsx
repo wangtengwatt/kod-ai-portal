@@ -1,5 +1,7 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { Check } from 'lucide-react'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Check, Loader2 } from 'lucide-react'
+import { useCallback, useState } from 'react'
+import { useAuth } from '@/stores/auth'
 
 export const Route = createFileRoute('/pricing')({
   component: PricingPage,
@@ -32,7 +34,55 @@ const plans = [
   },
 ]
 
+interface RelayConfig {
+  url: string
+  apiKey: string
+}
+
 function PricingPage() {
+  const { token, isAuthenticated } = useAuth()
+  const navigate = useNavigate()
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
+
+  const handleGetStarted = useCallback(
+    async (planName: string) => {
+      if (!isAuthenticated || !token) {
+        // 未登录 → 跳转到登录页
+        navigate({ to: '/login' })
+        return
+      }
+
+      setLoadingPlan(planName)
+      try {
+        const resp = await fetch('/api/relay-station/config', {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+
+        if (!resp.ok) {
+          // 获取中转站配置失败，回退到 /download
+          navigate({ to: '/download' })
+          return
+        }
+
+        const result: { code: number; data: RelayConfig } = await resp.json()
+        if (result.code !== 0 || !result.data?.url) {
+          navigate({ to: '/download' })
+          return
+        }
+
+        // 去除 /v1 后缀，拼接 /dashboard/overview 后跳转
+        const baseUrl = result.data.url.replace(/\/v1\/?$/, '')
+        window.location.href = `${baseUrl}/dashboard/overview`
+      } catch {
+        // 网络异常，回退到 /download
+        navigate({ to: '/download' })
+      } finally {
+        setLoadingPlan(null)
+      }
+    },
+    [token, isAuthenticated, navigate],
+  )
+
   return (
     <section className="bg-gray-50">
       <div className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
@@ -74,16 +124,19 @@ function PricingPage() {
                 ))}
               </ul>
 
-              <Link
-                to="/download"
-                className={`mt-8 block rounded-lg px-5 py-3 text-center text-sm font-semibold transition-colors ${
+              <button
+                type="button"
+                disabled={loadingPlan === plan.name}
+                onClick={() => handleGetStarted(plan.name)}
+                className={`mt-8 flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-center text-sm font-semibold transition-colors disabled:opacity-60 ${
                   plan.highlight
                     ? 'bg-brand-600 text-white hover:bg-brand-700'
                     : 'border border-gray-300 text-gray-700 hover:border-brand-600 hover:text-brand-600'
                 }`}
               >
+                {loadingPlan === plan.name && <Loader2 className="h-4 w-4 animate-spin" />}
                 开始使用
-              </Link>
+              </button>
             </div>
           ))}
         </div>

@@ -32,10 +32,10 @@ spring:
           max-wait: 10s
   # 邮件（SMTP），所有环境均通过 .env 注入；未配置则验证码仅打印日志
   mail:
-    host: ${MAIL_HOST:smtp.qq.com}
+    host: ${MAIL_HOST:smtp.zoho.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:your-email@qq.com}
-    password: ${MAIL_PASSWORD:your-auth-code}  # QQ邮箱需要用授权码，不是登录密码
+    username: ${MAIL_USERNAME:kod@kai.com}
+    password: ${MAIL_PASSWORD:_fki9dfO}  # QQ邮箱需要用授权码，不是登录密码
     properties:
       mail:
         smtp:

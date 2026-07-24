@@ -7,7 +7,8 @@ import { useAuth } from '@/stores/auth'
 export const Route = createFileRoute('/login')({
   validateSearch: (search: Record<string, unknown>) => ({
     redirect:
-      typeof search.redirect === 'string' && search.redirect.startsWith('/')
+      typeof search.redirect === 'string' &&
+      (search.redirect.startsWith('/') || search.redirect.startsWith('http'))
         ? search.redirect
         : '/',
   }),
@@ -145,7 +146,11 @@ function LoginPage() {
     try {
       const { token } = await loginApi(email.trim(), password)
       login(token)
-      await navigate({ to: redirect })
+      if (redirect.startsWith('http')) {
+        window.location.href = redirect
+      } else {
+        await navigate({ to: redirect })
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '登录失败，请重试')
       setShakeError(true)

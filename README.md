@@ -1,8 +1,6 @@
 # kod-ai-portal
 
-kod 官网项目 —— 前后端分离的单仓多项目仓库。
-
-kod 是基于开源项目 [chatbox](https://github.com/chatboxai/chatbox) 二次研发的自有 AI 助手产品，本仓库为其**官方网站**，视觉与信息架构对标 [chatboxai.app](https://chatboxai.app/zh)。
+KOD 官网项目 —— 前后端分离的单仓多项目仓库。
 
 ## 目录结构
 
@@ -10,7 +8,9 @@ kod 是基于开源项目 [chatbox](https://github.com/chatboxai/chatbox) 二次
 kod-ai-portal/
 ├── frontend/          # 官网前端（React 19 + Rsbuild + TailwindCSS + TanStack）
 ├── backend/           # 官网后端（Java 17 + Spring Boot 3 + MyBatis-Plus）
-├── openspec/          # OpenSpec 规格与变更管理
+├── document/          # 部署文档
+├── docker-compose.yml # Docker Compose 编排
+├── .env.example       # 环境变量示例
 ├── README.md
 ├── .gitignore
 └── .editorconfig
@@ -22,10 +22,10 @@ kod-ai-portal/
 - **框架**：React 19 + TypeScript
 - **构建**：Rsbuild（Rspack）
 - **样式**：TailwindCSS v4
+- **图标**：Lucide React
 - **路由 / 数据**：TanStack Router（文件式路由）+ TanStack Query
+- **鉴权**：JWT Token（React Context + localStorage）
 - **代码检查**：oxlint
-
-> 技术栈参考 `kai-new-api/web/default`。
 
 ### 后端（`backend/`）
 - **语言 / 框架**：Java 17 + Spring Boot 3.3
@@ -33,115 +33,139 @@ kod-ai-portal/
 - **数据库**：MySQL 8
 - **缓存**：Redis（Lettuce）
 - **鉴权**：JWT（jjwt）+ BCrypt
+- **邮件服务**：邮箱验证码发送与校验
 - **构建**：Maven
 - **包结构**：`com.kod` 下 `controller` / `service` / `mapper` / `entity` / `config` / `common` / `dto` / `util` 分层
 
-> 数据源与 Redis 的默认配置与参考项目 `aiex-model-registry-service` 保持一致（远程 dev 库，懒加载），均支持环境变量覆盖。
-
 ## 环境要求
 
-- **Node.js** ≥ 20（推荐 24.x），npm ≥ 10（或使用 Bun）
+- **Node.js** ≥ 20.19（推荐 22.12.x），npm ≥ 10
 - **JDK** ≥ 17（已在 JDK 21 验证）
 - **Maven** ≥ 3.9
+- **MySQL** 8（外部实例，默认 `18.139.134.29:3306`）
+- **Redis** 7（外部实例，默认 `18.139.134.29:6379`）
 
 ## 本地启动
+
+### 前置准备
+
+```bash
+# 确保使用项目自带的 Node.js（端口 3000 要求 Node ≥ 20.19）
+export PATH="/d/kod/node-v22.12.0-win-x64:$PATH"
+
+# 确认 MySQL 和 Redis 可访问
+mysql -h18.139.134.29 -P3306 -uaiex_dev -p kod
+redis-cli -h 18.139.134.29 -p 6379 -a <password>
+```
 
 ### 前端
 
 ```bash
 cd frontend
-npm install          # 安装依赖（也可用 bun install）
+npm install
 npm run dev          # 启动开发服务，默认 http://localhost:3000
 npm run build        # 生产构建，产物在 dist/
-npm run typecheck    # 类型检查
-npm run lint         # 代码检查
 ```
 
-开发环境下 `/api` 请求会代理到后端（默认 `http://localhost:8080`，可通过 `.env` 的 `VITE_API_BASE_URL` 覆盖，参考 `frontend/.env.example`）。
+环境变量（`frontend/.env`，参考 `.env.example`）：
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `VITE_API_BASE_URL` | 后端 API 地址 | `http://localhost:8080` |
+| `VITE_KOD_WEB_URL` | KOD Web 端地址（导航栏和下载页链接） | 空 |
 
 ### 后端
 
 ```bash
 cd backend
-mvn clean package -DskipTests    # 构建 jar
-mvn spring-boot:run              # 启动（默认 dev 环境，H2 内存库）
-# 或：java -jar target/kod-portal-backend-0.1.0.jar
+mvn spring-boot:run                              # 启动（dev 环境）
+java -jar target/kod-portal-backend-0.1.0.jar    # 或运行 jar
 
 # 健康检查
 curl http://localhost:8080/api/health
 ```
 
-切换环境（通过 `spring.profiles.active`）：
+邮件服务配置（dev 环境通过环境变量注入，Zoho 邮箱示例）：
 
 ```bash
-mvn spring-boot:run -Dspring-boot.run.profiles=test
-java -jar target/kod-portal-backend-0.1.0.jar --spring.profiles.active=prod
+MAIL_USERNAME=eudora@vn.com MAIL_PASSWORD=<密码> mvn spring-boot:run
 ```
 
-数据库与 Redis 连接均通过环境变量覆盖默认值（不在代码中硬编码敏感信息）：
+全部环境变量：
 
 | 环境变量 | 说明 |
 | -------- | ---- |
 | `MYSQL_HOST` / `MYSQL_PORT` / `MYSQL_DATABASE` / `MYSQL_USERNAME` / `MYSQL_PASSWORD` | MySQL 连接 |
 | `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | Redis 连接 |
 | `JWT_SECRET` / `JWT_EXPIRE_MILLIS` | JWT 密钥与有效期 |
-
-建表 SQL 见 `backend/src/main/resources/schema.sql`（MySQL 方言，由迁移脚本执行，应用不自动建表）。本地可用 Docker 快速起依赖：
-
-```bash
-docker run -d --name kod-mysql -e MYSQL_ROOT_PASSWORD=kodroot -e MYSQL_DATABASE=kod -p 3307:3306 mysql:8
-docker run -d --name kod-redis -p 6380:6379 redis:7 redis-server --requirepass kodredis
-mysql -h127.0.0.1 -P3307 -uroot -pkodroot kod < backend/src/main/resources/schema.sql
-
-MYSQL_HOST=127.0.0.1 MYSQL_PORT=3307 MYSQL_DATABASE=kod MYSQL_USERNAME=root MYSQL_PASSWORD=kodroot \
-REDIS_HOST=127.0.0.1 REDIS_PORT=6380 REDIS_PASSWORD=kodredis \
-java -jar backend/target/kod-portal-backend-0.1.0.jar
-```
+| `MAIL_HOST` / `MAIL_PORT` / `MAIL_USERNAME` / `MAIL_PASSWORD` | SMTP 邮件（默认 Zoho） |
 
 ## 后端 API
 
-统一响应结构：`{ "code": 0, "message": "success", "data": ... }`（`code` 为 0 表示成功，非 0 为错误）。
+统一响应：`{ "code": 0, "message": "success", "data": ... }`（code=0 成功，非 0 错误）。
 
 | 方法 | 路径 | 说明 | 鉴权 |
 | ---- | ---- | ---- | ---- |
-| GET  | `/api/health` | 健康检查 | 无 |
-| POST | `/api/relay-station` | 保存 AI 中转站（`url` + `inviteCode` 存第一表，`apiKey` 存第二表；邀请码唯一） | 无 |
-| POST | `/api/auth/login` | 登录或注册：首次登录即注册（必填有效 `inviteCode` 关联中转站），返回 JWT；老用户校验密码，邀请码不生效 | 无 |
-| GET  | `/api/relay-station/config` | 凭 JWT 获取当前用户关联中转站的 `url` 与 `apiKey` | `Authorization: Bearer <token>` |
+| GET | `/api/health` | 健康检查 | 无 |
+| POST | `/api/relay-station` | 保存 AI 中转站 | 无 |
+| POST | `/api/auth/login` | 登录：邮箱 + 密码，返回 JWT | 无 |
+| POST | `/api/auth/send-code` | 发送邮箱验证码 | 无 |
+| GET | `/api/relay-station/config` | 获取当前用户中转站配置 | Bearer Token |
 
-数据表：
+> 注册逻辑合并进 `/api/auth/login`：用户不存在时需同时传入 `inviteCode` 和 `emailCode`，后端校验邀请码并注册。
 
-- `relay_station`（第一表）：`url`、`invite_code`（唯一索引）
-- `relay_station_key`（第二表）：`api_key`、`station_id`（关联第一表主键）
-- `sys_user`：`email`（唯一）、`password`（BCrypt）、`station_id`（注册时由邀请码关联）
+## 页面路由
 
-示例（本地 dev）：
+| 路由 | 页面 | 说明 |
+|------|------|------|
+| `/` | 首页 | Hero + 数据亮点 + 产品特性 + CTA |
+| `/features` | 产品特性 | 分组展示全部功能 |
+| `/download` | 下载 | 桌面端 / 移动端 / Web 版分类 |
+| `/pricing` | 定价 | 免费版 / 专业版 / 团队版 |
+| `/changelog` | 更新日志 | 版本迭代记录 |
+| `/login` | 登录 | 邮箱 + 密码登录 |
+| `/register` | 注册 | 邮箱 + 验证码 + 邀请码注册 |
+| `/feedback` | 意见反馈 | 用户反馈表单 |
+| `/kod-ai-services-faqs` | 常见问题 | FAQ 页面 |
+| `/jsjsubmit` | 问卷调查 | 用户调研 |
+
+## 部署
+
+见 `document/部署文档.md`。使用 Docker Compose 编排前端（Nginx）+ 后端（Spring Boot），MySQL / Redis 复用外部实例。
 
 ```bash
-# 1. 保存中转站
-curl -X POST http://localhost:8080/api/relay-station -H 'Content-Type: application/json' \
-  -d '{"url":"https://fane.kai.com/v1","apiKey":"sk-xxxx","inviteCode":"INVITE-001"}'
-
-# 2. 首次登录即注册，拿到 token
-curl -X POST http://localhost:8080/api/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"a@b.com","password":"pass123","inviteCode":"INVITE-001"}'
-
-# 3. 凭 token 获取中转站配置
-curl http://localhost:8080/api/relay-station/config -H "Authorization: Bearer <token>"
+cp .env.example .env && vi .env     # 填写连接信息
+docker compose build
+docker compose up -d
 ```
 
-> JWT 密钥与有效期通过 `JWT_SECRET` / `JWT_EXPIRE_MILLIS` 环境变量配置（见 `application.yml`），生产环境务必覆盖默认密钥。
+## 版本记录
 
-## 分支与环境
+### v0.2.1 (2026-07-24)
 
-| 分支   | 用途       | 说明                     |
-| ------ | ---------- | ------------------------ |
-| `dev`  | 本地开发   | 日常开发主分支           |
-| `test` | 测试环境   | 部署到测试环境的代码     |
-| `prod` | 正式环境   | 部署到生产环境的代码     |
+- 后端：补充 `spring-boot-starter-mail` 依赖与 SMTP 配置（Zoho 邮箱）
+- 后端：新增 `POST /api/auth/send-code` 端点，验证码 Redis 存储（60s 防刷、5min 有效）
+- 后端：注册流程加入邮箱验证码校验，`LoginRequest` 新增 `emailCode` 字段
+- 后端：邮件发送改为尽力而为（失败不阻塞注册），验证码写日志便于 dev 调试
+- 前端：抽取 `config.ts` 统一管理 `KOD_WEB_URL`、`API_BASE_URL`
+- 前端：导航栏"立即使用"加入登录检查：未登录跳转登录页，登录后自动重定向 Web 端
+- 前端：登录页支持外部 URL 重定向（登录成功后跳转 KOD Web 端）
+- README：补充本地部署注意事项（Node.js 版本、MySQL/Redis、邮件配置）
 
-约定：功能开发基于 `dev`，验证后合并到 `test`，测试通过后合并到 `prod`。
+### v0.2.0 (2026-07-24)
 
-## 规格与变更管理
+- 新增登录/注册页面，邮箱 + 密码 + 验证码体系
+- JWT Token 鉴权（React Context + localStorage）
+- 前端 UI 全面升级：Lucide 图标、品牌色板扩展、数据亮点区、下载页平台分类
+- 首页移除开源项目引用，替换为 KOD 品牌文案
+- 导航栏新增"立即使用"入口，直达 KOD Web 版
+- 邮箱验证码服务（`/api/auth/send-code`）
+- Docker Compose 部署方案 + 部署文档
+- 注册流程合并入 `/api/auth/login`，需邀请码关联中转站
 
-本仓库使用 [OpenSpec](openspec/) 管理规格与变更，规格位于 `openspec/`，变更提案位于 `openspec/changes/`。
+### v0.1.0 (2026-07-16)
+
+- 官网上线：首页、产品特性、下载、定价、FAQ、意见反馈
+- 后端登录/注册：首次登录即注册，JWT 认证
+- Spring Boot 3.3 + MyBatis-Plus + Druid + Redis
+- 前端 React 19 + Rsbuild + TanStack Router + TailwindCSS 4

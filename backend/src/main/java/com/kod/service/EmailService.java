@@ -1,6 +1,5 @@
 package com.kod.service;
 
-import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,8 +48,8 @@ public class EmailService {
 
             mailSender.send(message);
             log.info("验证码邮件已发送，to={}", toEmail);
-        } catch (MessagingException e) {
-            log.error("发送验证码邮件失败，to={}, error={}", toEmail, e.getMessage());
+        } catch (Exception e) {
+            log.warn("发送验证码邮件失败（不影响注册），to={}, error={}", toEmail, e.getMessage());
         }
     }
 

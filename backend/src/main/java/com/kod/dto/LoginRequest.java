@@ -21,4 +21,10 @@ public class LoginRequest {
 
     /** 邀请码：首次登录（注册）必填，用于关联中转站；老用户登录可不传，且不生效。 */
     private String inviteCode;
+
+    /**
+     * 邮箱验证码：首次登录（注册）时，需传入已验证的邮箱验证码。
+     * 老用户登录无需提供。
+     */
+    private String emailCode;
 }

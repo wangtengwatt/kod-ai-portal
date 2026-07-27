@@ -84,7 +84,7 @@ function PricingPage() {
   )
 
   return (
-    <section className="bg-gray-50">
+    <section className="bg-white">
       <div className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 sm:text-5xl">定价方案</h1>

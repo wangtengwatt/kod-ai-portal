@@ -1,15 +1,16 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
+  BarChart3,
+  Clock,
   Cpu,
   FileText,
   Globe,
-  Languages,
-  Library,
   Monitor,
-  Palette,
+  RefreshCw,
+  Scale,
   Search,
   Shield,
-  Smartphone,
+  TrendingUp,
   Users,
   Zap,
   type LucideIcon,
@@ -27,57 +28,72 @@ interface Feature {
 
 const groups: { name: string; items: Feature[] }[] = [
   {
+    name: 'KAI 期算交易能力',
+    items: [
+      {
+        icon: FileText,
+        title: '标准合约',
+        desc: '基于 KAI 期算品种规则的统一合约模板：固定模型版本、上下文上限 256K、一手 1,000,000 TPM、指定交割小时与区域。',
+      },
+      {
+        icon: Clock,
+        title: '分时交付',
+        desc: '合约精确到小时，供应商在约定时段提供符合标准的模型服务。KOD 监控并记录交付质量，支持违约追偿。',
+      },
+      {
+        icon: TrendingUp,
+        title: '跨供应商竞价',
+        desc: '同一品种合约可面向多家合格供应商询价，KOD 聚合报价并展示历史成交价，辅助企业获取最优条件。',
+      },
+      {
+        icon: RefreshCw,
+        title: '二级转让',
+        desc: '关闸前可出售多余容量或补购缺口。KOD 内置转让记录与持仓管理，让合约从固定承诺变为灵活资产。',
+      },
+      {
+        icon: BarChart3,
+        title: '行情与价格发现',
+        desc: '远期价格曲线、历史成交数据、供应商评分——为采购决策提供数据支撑，帮助识别价格异常和套利机会。',
+      },
+      {
+        icon: Scale,
+        title: '交割与风控',
+        desc: '自动记录交付比例，触发替代采购流程，计算供应商违约补偿。KAI 平台中立治理，争议有据可查。',
+      },
+    ],
+  },
+  {
     name: 'AI 模型支持',
     items: [
       {
         icon: Cpu,
         title: '多模型接入',
-        desc: '支持 OpenAI (ChatGPT)、Azure OpenAI、Claude、Google Gemini、DeepSeek、Mistral、Amazon Bedrock、Perplexity 等主流 LLM 提供商，一处配置，自由切换。',
+        desc: '接入 OpenAI、Claude、Gemini、DeepSeek、GLM、Mistral 等主流大模型。在 KAI 期算市场中，模型以品种形式标准化登记，版本与上下文透明可查。',
       },
       {
         icon: Zap,
         title: '增强提示词',
-        desc: '提供高级提示词功能，可精炼和聚焦你的提问，获得更精准的回复。',
+        desc: '高级提示词功能帮助精炼提问，获得更精准回复。企业可沉淀业务专用提示词库，配合合约模型实现稳定产出。',
       },
     ],
   },
   {
-    name: '用户体验',
+    name: 'KOD 智能工作台',
     items: [
       {
         icon: Shield,
         title: '本地数据存储',
-        desc: '数据保留在你的设备上，确保不会丢失，同时保障你的隐私安全。桌面端使用文件存储 + IndexedDB，移动端使用 SQLite。',
+        desc: '会话数据本地存储，隐私安全可控。企业级数据隔离，确保容量交易数据与对话数据分离。',
       },
       {
         icon: Monitor,
-        title: '开箱即用安装包',
-        desc: '提供各平台安装包，无需复杂配置即可快速开始使用。支持 Windows、macOS、Linux。',
+        title: '全平台一致体验',
+        desc: '桌面端（Windows / macOS / Linux）、Web 端与移动端（iOS / Android）统一界面，蒜粒持仓与交易记录跨设备同步。',
       },
-      {
-        icon: Palette,
-        title: '深色主题与舒适 UI',
-        desc: '用户友好的界面设计，支持深色模式，减少长时间使用时的视觉疲劳。',
-      },
-      {
-        icon: Zap,
-        title: '键盘快捷键',
-        desc: '丰富的快捷键支持，让你的工作流保持高效。',
-      },
-    ],
-  },
-  {
-    name: '内容与格式',
-    items: [
       {
         icon: FileText,
         title: 'Markdown、LaTeX 与代码高亮',
-        desc: '消息支持 Markdown 与 LaTeX 排版，并对多种编程语言提供语法高亮，提升可读性与展示效果。',
-      },
-      {
-        icon: Library,
-        title: '提示词库与消息引用',
-        desc: '保存并组织常用提示词以供复用；支持引用对话中的消息，提供上下文背景。',
+        desc: '消息支持 Markdown 与 LaTeX 排版，对多种编程语言提供语法高亮。合约文档与交割报告以结构化格式展示。',
       },
     ],
   },
@@ -87,47 +103,27 @@ const groups: { name: string; items: Feature[] }[] = [
       {
         icon: Search,
         title: '网页搜索与读取',
-        desc: 'AI 可在对话中调用网页搜索工具获取最新信息，或读取指定 URL 的可读正文进行深入理解。支持多种搜索引擎。',
+        desc: 'AI 可调用网页搜索获取最新信息或读取 URL 正文。用于市场调研、供应商背景核查与行业动态追踪。',
       },
       {
         icon: Cpu,
         title: 'MCP 工具扩展',
-        desc: '支持 Model Context Protocol 开放协议，通过标准化接口调用外部工具。内置 Fetch、Sequential Thinking、arXiv 论文检索等预设服务，也支持自定义 Stdio/HTTP 连接。',
-      },
-      {
-        icon: FileText,
-        title: '文件读取与分析',
-        desc: '上传文档后 AI 可直接读取分析。支持 PDF、Word、Excel、Epub 等多种格式。大文件先展示摘要，按需通过工具读取完整内容。',
+        desc: '支持 Model Context Protocol 开放协议，可接入企业内部 API。未来将开放 KAI 期算交易与持仓查询接口。',
       },
     ],
   },
   {
-    name: '协作与分享',
+    name: '协作与多语言',
     items: [
       {
         icon: Users,
         title: '团队协作',
-        desc: '轻松协作，在团队间共享 AI API 资源，统一管理用量。',
+        desc: '团队间共享 AI API 资源，统一管理用量。采购团队可协同管理 KAI 期算持仓与审批流程。',
       },
-    ],
-  },
-  {
-    name: '平台与本地化',
-    items: [
       {
         icon: Globe,
-        title: '跨平台覆盖',
-        desc: '覆盖桌面端（Windows / macOS / Linux）、Web 版以及移动端（iOS / Android），同一份代码库，全平台一致体验。',
-      },
-      {
-        icon: Languages,
         title: '多语言支持',
-        desc: '面向全球用户，支持 9 种语言：English、简体中文、繁體中文、日本語、한국어、Français、Deutsch、Русский、Español。',
-      },
-      {
-        icon: Smartphone,
-        title: '移动端适配',
-        desc: 'iOS 与 Android 原生体验，基于 Capacitor 构建，触控优化，随时随地使用。',
+        desc: '面向全球用户，支持 9 种语言：English、简体中文、繁體中文、日本語、한국어、Français、Deutsch、Русский、Español。KAI 期算合约支持多区域交割。',
       },
     ],
   },
@@ -135,12 +131,12 @@ const groups: { name: string; items: Feature[] }[] = [
 
 function FeaturesPage() {
   return (
-    <section className="bg-gray-50">
+    <section className="bg-white">
       <div className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900 sm:text-5xl">产品特性</h1>
+          <h1 className="text-4xl font-bold text-gray-900 sm:text-5xl">KOD 功能体系</h1>
           <p className="mt-4 text-gray-600">
-            整合前沿 AI 能力与精致用户体验，为你的工作流赋能。
+            以 KAI 期算市场能力为核心，整合 AI 对话、工具链与跨平台体验，打造完整的蒜粒期货 AI 工作台。
           </p>
         </div>
 
@@ -176,7 +172,7 @@ function FeaturesPage() {
             to="/download"
             className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-3 text-base font-semibold text-white shadow-sm transition-colors hover:bg-brand-700"
           >
-            免费下载 KOD
+            下载 KOD，接入 KAI 期算
           </Link>
         </div>
       </div>

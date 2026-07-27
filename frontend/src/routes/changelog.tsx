@@ -9,6 +9,13 @@ const releases = [
     version: 'v0.2.0',
     date: '2026-07-24',
     items: [
+      '品牌升级：KOD 重新定位为「蒜粒期货 AI 助手」，以 KAI 期算为核心标识',
+      '首页重写：突出 KAI 期算标准合约、分时交付、跨供应商竞价与二级转让能力',
+      '新增「KAI 期算白皮书」独立页面，完整呈现模型服务容量市场概念框架',
+      '功能页重组：新增「KAI 期算交易能力」版块，整合市场核心功能',
+      '定价页升级：新增 KAI 期算市场交易费用区块',
+      'FAQ 扩充：新增期算概念、KOD 与 KAI 关系、适用场景等问答',
+      '导航与页脚重构：KAI 期算提升至核心位置，添加品牌标语',
       'Web 版正式上线，浏览器即开即用',
       '官网改版：全新首页、数据亮点区、下载页桌面端/移动端/Web版分类展示',
       '新增登录 / 注册页面：邮箱 + 密码 + 验证码体系，JWT Token 鉴权',
@@ -33,7 +40,7 @@ const releases = [
 
 function ChangelogPage() {
   return (
-    <section className="bg-gray-50">
+    <section className="bg-white">
       <div className="mx-auto max-w-3xl px-6 py-20 sm:py-28">
         <h1 className="text-4xl font-bold text-gray-900 sm:text-5xl">更新日志</h1>
         <p className="mt-4 text-gray-600">记录 KOD 的每一次迭代与改进。</p>

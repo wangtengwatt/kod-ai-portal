@@ -2,16 +2,17 @@ import { Link } from '@tanstack/react-router'
 import { useAuth } from '@/stores/auth'
 import { KOD_WEB_URL } from '@/config'
 
-/** 官网顶部导航：品牌标识 + 主要栏目 + 登录/用户状态 + 下载入口。 */
+/** 官网顶部导航：品牌标识 + tagline + 主要栏目 + 登录/用户状态 + 下载入口。 */
 export function Navbar() {
   const { isAuthenticated, logout } = useAuth()
 
   const navItems = [
     { to: '/', label: '首页' },
+    { to: '/kai', label: 'KAI 期算', highlight: true },
     { to: '/features', label: '产品特性' },
-    { to: '/changelog', label: '更新日志' },
     { to: '/pricing', label: '定价' },
     { to: '/download', label: '下载' },
+    { to: '/changelog', label: '更新日志' },
   ] as const
 
   return (
@@ -22,6 +23,9 @@ export function Navbar() {
             k
           </span>
           <span className="text-xl font-bold text-gray-900">KOD</span>
+          <span className="hidden text-xs font-medium text-brand-600 lg:inline-block">
+            蒜粒期货 AI 助手
+          </span>
         </Link>
 
         <div className="hidden items-center gap-8 md:flex">
@@ -29,7 +33,11 @@ export function Navbar() {
             <Link
               key={item.to}
               to={item.to}
-              className="text-sm font-medium text-gray-600 transition-colors hover:text-brand-600"
+              className={`text-sm font-medium transition-colors ${
+                'highlight' in item && item.highlight
+                  ? 'text-brand-600 hover:text-brand-700'
+                  : 'text-gray-600 hover:text-brand-600'
+              }`}
               activeProps={{ className: 'text-brand-600' }}
             >
               {item.label}

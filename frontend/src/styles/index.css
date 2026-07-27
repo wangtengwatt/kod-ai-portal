@@ -93,6 +93,7 @@ body {
 body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  background-color: #fff;
 }
 
 /* ---------- 输入框自动填充样式 ---------- */

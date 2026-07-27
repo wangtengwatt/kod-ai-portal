@@ -1,10 +1,11 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useAuth } from '@/stores/auth'
 import { KOD_WEB_URL } from '@/config'
 
 /** 官网顶部导航：品牌标识 + tagline + 主要栏目 + 登录/用户状态 + 下载入口。 */
 export function Navbar() {
   const { isAuthenticated, logout } = useAuth()
+  const navigate = useNavigate()
 
   const navItems = [
     { to: '/', label: '首页' },
@@ -44,22 +45,39 @@ export function Navbar() {
             </Link>
           ))}
           {isAuthenticated ? (
-            <a
-              href={KOD_WEB_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-lg border border-brand-600 px-4 py-2 text-sm font-semibold text-brand-600 transition-colors hover:bg-brand-50"
-            >
-              立即使用
-            </a>
+            <>
+              <a
+                href={KOD_WEB_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-lg border border-brand-600 px-4 py-2 text-sm font-semibold text-brand-600 transition-colors hover:bg-brand-50"
+              >
+                立即使用
+              </a>
+              <Link
+                to="/api-config"
+                className="rounded-lg border border-purple-400 px-4 py-2 text-sm font-semibold text-purple-600 transition-all hover:bg-purple-50 hover:border-purple-500 hover:shadow-[0_0_12px_rgba(168,85,247,0.15)]"
+              >
+                API Key
+              </Link>
+            </>
           ) : (
-            <Link
-              to="/login"
-              search={{ redirect: KOD_WEB_URL }}
-              className="rounded-lg border border-brand-600 px-4 py-2 text-sm font-semibold text-brand-600 transition-colors hover:bg-brand-50"
-            >
-              立即使用
-            </Link>
+            <>
+              <Link
+                to="/login"
+                search={{ redirect: KOD_WEB_URL }}
+                className="rounded-lg border border-brand-600 px-4 py-2 text-sm font-semibold text-brand-600 transition-colors hover:bg-brand-50"
+              >
+                立即使用
+              </Link>
+              <Link
+                to="/login"
+                search={{ redirect: '/api-config' }}
+                className="rounded-lg border border-purple-400 px-4 py-2 text-sm font-semibold text-purple-600 transition-all hover:bg-purple-50 hover:border-purple-500 hover:shadow-[0_0_12px_rgba(168,85,247,0.15)]"
+              >
+                API Key
+              </Link>
+            </>
           )}
         </div>
 
@@ -67,7 +85,7 @@ export function Navbar() {
           {isAuthenticated ? (
             <button
               type="button"
-              onClick={logout}
+              onClick={() => { logout(); navigate({ to: '/login' }) }}
               className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition-colors hover:border-red-300 hover:text-red-600"
             >
               退出

@@ -85,8 +85,8 @@ function Spinner() {
 function passwordStrength(pwd: string): { score: number; label: string; color: string } {
   if (!pwd) return { score: 0, label: '', color: 'bg-gray-200' }
   let score = 0
-  if (pwd.length >= 6) score++
-  if (pwd.length >= 10) score++
+  if (pwd.length >= 8) score++
+  if (pwd.length >= 12) score++
   if (/[A-Z]/.test(pwd)) score++
   if (/[0-9]/.test(pwd)) score++
   if (/[^A-Za-z0-9]/.test(pwd)) score++
@@ -111,6 +111,8 @@ function RegisterPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [shakeKey, setShakeKey] = useState(0)
+  // kod 注册成功但中转站同步失败时的提示
+  const [relayWarning, setRelayWarning] = useState<string | null>(null)
 
   // 发送验证码
   const [sending, setSending] = useState(false)
@@ -150,6 +152,7 @@ function RegisterPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
+    setRelayWarning(null)
 
     if (!email.trim() || !password || !code.trim() || !inviteCode.trim()) {
       setError('请填写所有字段')
@@ -161,17 +164,23 @@ function RegisterPage() {
       setShakeKey((k) => k + 1)
       return
     }
-    if (password.length < 6) {
-      setError('密码长度不能少于 6 位')
+    if (password.length < 8) {
+      setError('密码长度不能少于 8 位')
       setShakeKey((k) => k + 1)
       return
     }
 
     setLoading(true)
     try {
-      const { token } = await registerApi(email.trim(), password, inviteCode.trim(), code.trim())
+      const { token, relayMessage } = await registerApi(email.trim(), password, inviteCode.trim(), code.trim())
       login(token)
-      await navigate({ to: redirect })
+      if (relayMessage) {
+        // kod 注册成功，但中转站同步失败：展示提示后延迟跳转
+        setRelayWarning(relayMessage)
+        setTimeout(() => { navigate({ to: redirect }) }, 3000)
+      } else {
+        await navigate({ to: redirect })
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '注册失败，请重试')
       setShakeKey((k) => k + 1)
@@ -229,6 +238,18 @@ function RegisterPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                 </svg>
                 {error}
+              </span>
+            </div>
+          )}
+
+          {/* 中转站同步失败提示（kod 注册已成功） */}
+          {relayWarning && (
+            <div className="animate-fade-in rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-800 backdrop-blur shadow-sm shadow-amber-100/50">
+              <span className="flex items-center gap-2">
+                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9 5.25a7.5 7.5 0 1115 0H3zm9-2.25h.008v.008H12v-.008z" />
+                </svg>
+                {relayWarning}
               </span>
             </div>
           )}
@@ -303,10 +324,11 @@ function RegisterPage() {
                 type={showPwd ? 'text' : 'password'}
                 autoComplete="new-password"
                 required
-                minLength={6}
+                minLength={8}
+                maxLength={20}
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(null) }}
-                placeholder="至少 6 位"
+                placeholder="8-20 位"
                 className="block w-full rounded-xl border border-gray-200 bg-white/80 py-2.5 pl-10 pr-11 text-sm shadow-sm placeholder:text-gray-400 transition-all duration-300 focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:shadow-md focus:shadow-brand-100/30"
               />
               <button
@@ -365,7 +387,7 @@ function RegisterPage() {
           {/* submit */}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !!relayWarning}
             className="relative flex w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all duration-300 hover:from-brand-700 hover:to-brand-600 hover:shadow-brand-500/35 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 disabled:hover:from-brand-600 disabled:hover:to-brand-500"
           >
             {loading ? (

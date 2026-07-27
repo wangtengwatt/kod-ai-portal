@@ -17,6 +17,8 @@ interface ApiResult<T> {
 export interface AuthPayload {
   token: string
   newUser: boolean
+  /** 中转站同步注册提示：null 表示正常；非空表示 kod 注册成功但中转站同步失败。 */
+  relayMessage?: string | null
 }
 
 /** 自定义错误，携带后端返回的 code 与 message。 */
@@ -96,4 +98,33 @@ export async function registerApi(
  */
 export async function sendCodeApi(email: string): Promise<void> {
   return request<void>('/api/auth/send-code', { email })
+}
+
+/**
+ * 保存/更新当前登录用户关联中转站的 API Key。
+ * 需要在请求头中携带 Bearer token。
+ */
+export async function saveApiKey(token: string, apiKey: string): Promise<void> {
+  const resp = await fetch('/api/relay-station/api-key', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ apiKey }),
+  })
+
+  if (!resp.ok) {
+    let message = `请求失败 (${resp.status})`
+    try {
+      const err = await resp.json()
+      if (err.message) message = err.message
+    } catch { /* ignore */ }
+    throw new Error(message)
+  }
+
+  const result = await resp.json()
+  if (result.code !== 0) {
+    throw new Error(result.message || '保存失败')
+  }
 }

@@ -79,6 +79,38 @@ public class RelayStationService {
     }
 
     /**
+     * 保存/更新当前用户关联中转站的 API 密钥。
+     *
+     * <p>每个 station 保留最新一条记录（先删后插），避免历史数据膨胀。</p>
+     *
+     * @param userId 用户主键
+     * @param apiKey API 密钥
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void saveApiKey(Long userId, String apiKey) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BizException(401, "用户不存在");
+        }
+        if (user.getStationId() == null) {
+            throw new BizException(400, "当前用户未关联中转站，无法配置 API Key");
+        }
+
+        // 删除该中转站已有的所有密钥记录，再插入新记录
+        relayStationKeyMapper.delete(
+                Wrappers.<RelayStationKey>lambdaQuery()
+                        .eq(RelayStationKey::getStationId, user.getStationId()));
+
+        RelayStationKey key = new RelayStationKey();
+        key.setStationId(user.getStationId());
+        key.setApiKey(apiKey);
+        key.setCreateTime(LocalDateTime.now());
+        relayStationKeyMapper.insert(key);
+
+        log.info("API Key 保存成功，userId={}, stationId={}", userId, user.getStationId());
+    }
+
+    /**
      * 根据用户主键获取其关联中转站的 url 与 API 密钥。
      *
      * @param userId 用户主键
@@ -96,15 +128,13 @@ public class RelayStationService {
         if (station == null) {
             throw new BizException(404, "关联的中转站不存在");
         }
-        // 取该中转站最新的一条密钥
+        // 取该中转站最新的一条密钥（允许为空：未配置密钥时仍可跳转中转站）
         List<RelayStationKey> keys = relayStationKeyMapper.selectList(
                 Wrappers.<RelayStationKey>lambdaQuery()
                         .eq(RelayStationKey::getStationId, station.getId())
                         .orderByDesc(RelayStationKey::getId));
-        if (keys.isEmpty()) {
-            throw new BizException(404, "中转站未配置 API 密钥");
-        }
-        log.info("获取中转站配置成功，userId={}, stationId={}", userId, station.getId());
-        return new RelayConfigResponse(station.getUrl(), keys.get(0).getApiKey());
+        String apiKey = keys.isEmpty() ? "" : keys.get(0).getApiKey();
+        log.info("获取中转站配置成功，userId={}, stationId={}, hasApiKey={}", userId, station.getId(), !keys.isEmpty());
+        return new RelayConfigResponse(station.getUrl(), apiKey);
     }
 }

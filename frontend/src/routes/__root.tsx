@@ -1,4 +1,4 @@
-import { createRootRoute, Outlet } from '@tanstack/react-router'
+import { createRootRoute, Outlet, useRouterState } from '@tanstack/react-router'
 
 import { Footer } from '@/components/layout/Footer'
 import { Navbar } from '@/components/layout/Navbar'
@@ -9,10 +9,12 @@ export const Route = createRootRoute({
 })
 
 function RootLayout() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+
   return (
     <div className="flex min-h-screen flex-col bg-white text-gray-900">
       <Navbar />
-      <main className="flex-1">
+      <main key={pathname} className="animate-page-enter flex-1">
         <Outlet />
       </main>
       <Footer />

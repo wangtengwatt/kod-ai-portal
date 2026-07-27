@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { Check, Loader2 } from 'lucide-react'
+import { Check, Loader2, ExternalLink } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useAuth } from '@/stores/auth'
 
@@ -43,6 +43,7 @@ function PricingPage() {
   const { token, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
+  const [loadingTokenShop, setLoadingTokenShop] = useState(false)
 
   const handleGetStarted = useCallback(
     async (planName: string) => {
@@ -83,6 +84,76 @@ function PricingPage() {
     [token, isAuthenticated, navigate],
   )
 
+  const handleTokenShop = useCallback(async () => {
+    if (!token) return
+    setLoadingTokenShop(true)
+    try {
+      const resp = await fetch('/api/relay-station/config', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!resp.ok) {
+        navigate({ to: '/download' })
+        return
+      }
+      const result: { code: number; data: RelayConfig } = await resp.json()
+      if (result.code !== 0 || !result.data?.url) {
+        navigate({ to: '/download' })
+        return
+      }
+      const baseUrl = result.data.url.replace(/\/v1\/?$/, '')
+      window.open(`${baseUrl}/dashboard/overview`, '_blank', 'noopener,noreferrer')
+    } catch {
+      navigate({ to: '/download' })
+    } finally {
+      setLoadingTokenShop(false)
+    }
+  }, [token, navigate])
+
+  // 已登录用户：直接展示 Token 零售站入口
+  if (isAuthenticated) {
+    return (
+      <section className="bg-white">
+        <div className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-gray-900 sm:text-5xl">定价方案</h1>
+            <p className="mt-4 text-gray-600">从免费开始，按需升级，随时可取消。</p>
+          </div>
+
+          <div className="mt-14 flex flex-col items-center">
+            <div className="w-full max-w-md rounded-2xl border-2 border-brand-500 bg-white p-10 text-center shadow-sm ring-1 ring-brand-500">
+              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-100">
+                <ExternalLink className="h-8 w-8 text-brand-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900">Token 零售站</h2>
+              <p className="mt-3 text-sm leading-relaxed text-gray-500">
+                前往 Token 零售站，选购与管理你的 Token 额度，按需充值、灵活使用。
+              </p>
+              <button
+                type="button"
+                onClick={handleTokenShop}
+                disabled={loadingTokenShop}
+                className="mt-8 inline-flex items-center gap-2 rounded-lg bg-brand-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-brand-200 transition-all hover:bg-brand-700 active:scale-[0.98] disabled:opacity-60"
+              >
+                {loadingTokenShop ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    加载中...
+                  </>
+                ) : (
+                  <>
+                    前往token零售站
+                    <ExternalLink className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  // 未登录用户：展示原有定价方案
   return (
     <section className="bg-white">
       <div className="mx-auto max-w-6xl px-6 py-20 sm:py-28">

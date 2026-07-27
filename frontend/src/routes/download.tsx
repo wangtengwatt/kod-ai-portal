@@ -28,8 +28,8 @@ function DownloadPage() {
     <section className="bg-white">
       <div className="mx-auto max-w-6xl px-6 py-20 sm:py-28">
         <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900 sm:text-5xl">下载 KOD</h1>
-          <p className="mt-4 text-gray-600">选择你的平台，免费开始使用蒜粒期货 AI 助手。基于 KAI 期算标准，让模型容量采购更简单。</p>
+          <h1 className="text-4xl font-bold text-gray-900 sm:text-5xl">下载 KOD蒜粒</h1>
+          <p className="mt-4 text-gray-600">选择你的平台，免费开始使用。基于 KAI 期算标准，让模型容量采购更简单。</p>
         </div>
 
         {/* KAI 期算徽章 */}

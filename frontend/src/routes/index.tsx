@@ -70,14 +70,14 @@ function HomePage() {
 
           {/* 标题 */}
           <h1 className="mt-8 text-5xl font-extrabold tracking-tight text-gray-900 sm:text-6xl lg:text-7xl">
-            KOD
-            <span className="text-brand-600"> — 蒜粒期货 AI 助手</span>
+            KOD蒜粒
+            <span className="text-brand-600"> — 你的期货 AI 助手</span>
           </h1>
 
           {/* 副标题 */}
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600">
-            首个深度集成 KAI 期算标准的 AI 助手。不只是对话工具——
-            更是你的蒜粒期货交易、交付与管理平台。
+            首个深度集成 KAI 期算标准的 AI 助手。不止于对话——
+            更是你的蒜粒期货交易、交付与管理平台，让模型容量可采购、可交付、可转让。
           </p>
 
           {/* CTA */}
@@ -104,10 +104,10 @@ function HomePage() {
         <div className="mx-auto max-w-6xl px-6">
           <div className="mb-14 text-center">
             <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">
-              KOD 是什么
+              KOD蒜粒 是什么
             </h2>
             <p className="mt-4 text-lg font-semibold text-brand-600">
-              蒜粒期货 AI 助手 —— 让模型容量可采购、可交付、可转让
+              KOD蒜粒 —— 蒜粒期货 AI 助手，让模型容量可采购、可交付、可转让
             </p>
           </div>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
@@ -118,8 +118,8 @@ function HomePage() {
               </div>
               <h3 className="mt-6 text-xl font-bold text-gray-900">蒜粒期货交易</h3>
               <p className="mt-3 text-sm leading-relaxed text-gray-600">
-                内置 KAI 期算市场，以 TPM·h 为标准合约单位。浏览行情、参与竞价、
-                采购未来容量、管理持仓——从下单到交割，完整闭环。
+                内置 KAI 期算市场，以 TPM·h 为标准合约单位。实时行情、多家竞价、
+                容量采购、持仓管理——从下单到交割，完整闭环。
               </p>
             </div>
 
@@ -130,8 +130,8 @@ function HomePage() {
               </div>
               <h3 className="mt-6 text-xl font-bold text-gray-900">确定性交付</h3>
               <p className="mt-3 text-sm leading-relaxed text-gray-600">
-                不是「尽力而为」的弹性调用，而是合同约定的分时交割。
-                供应商承担明确交付义务，未达标由平台协调替代履约和违约赔偿。
+                不是"尽力而为"的弹性调用，而是合同约定的分时交割。
+                供应商承担明确交付义务，未达标由平台协调替代履约并执行违约赔偿。
               </p>
             </div>
 
@@ -142,8 +142,8 @@ function HomePage() {
               </div>
               <h3 className="mt-6 text-xl font-bold text-gray-900">AI 智能工作台</h3>
               <p className="mt-3 text-sm leading-relaxed text-gray-600">
-                桌面端、移动端、Web 端一致体验。用采购的蒜粒直接对话，
-                追踪交割状态，接收行情通知——从交易到使用，一个平台完成。
+                桌面端、移动端、Web 端一致体验。用已购蒜粒直接对话，
+                追踪交割状态，接收行情通知——从交易到使用，一站完成。
               </p>
             </div>
           </div>
@@ -155,7 +155,7 @@ function HomePage() {
         <div className="mx-auto max-w-6xl px-6">
           <div className="mb-16 text-center">
             <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">
-              作为蒜粒期货 AI 助手，KOD 改变了什么
+              KOD蒜粒 改变了什么
             </h2>
           </div>
 
@@ -197,7 +197,7 @@ function HomePage() {
               为蒜粒生态的每一方创造价值
             </h2>
             <p className="mt-4 text-gray-600">
-              不论你是买方、供应商还是模型方，KOD 蒜粒期货 AI 助手都为你的角色提供确定价值
+              不论你是买方、供应商还是模型方，KOD蒜粒 都为你的角色提供确定价值
             </p>
           </div>
 
@@ -247,7 +247,7 @@ function HomePage() {
       <section className="bg-white py-20 sm:py-28">
         <div className="mx-auto max-w-3xl px-6 text-center">
           <h2 className="text-3xl font-bold text-gray-900 sm:text-4xl">
-            开始使用 KOD 蒜粒期货 AI 助手
+            开始使用 KOD蒜粒
           </h2>
           <p className="mt-4 text-gray-600">
             下载 KOD，接入 KAI 期算市场，让每一单位模型容量都可计划、可交易、可保障。

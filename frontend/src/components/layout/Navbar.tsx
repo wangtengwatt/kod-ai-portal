@@ -21,12 +21,9 @@ export function Navbar() {
       <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <Link to="/" className="flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 font-bold text-white">
-            k
+            K
           </span>
-          <span className="text-xl font-bold text-gray-900">KOD</span>
-          <span className="hidden text-xs font-medium text-brand-600 lg:inline-block">
-            蒜粒期货 AI 助手
-          </span>
+          <span className="text-xl font-bold text-gray-900">KOD蒜粒</span>
         </Link>
 
         <div className="hidden items-center gap-8 md:flex">

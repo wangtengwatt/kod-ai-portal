@@ -8,9 +8,9 @@ export function Footer() {
           <div className="max-w-xs">
             <Link to="/" className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 font-bold text-white">
-                k
+                K
               </span>
-              <span className="text-xl font-bold text-gray-900">KOD</span>
+              <span className="text-xl font-bold text-gray-900">KOD蒜粒</span>
             </Link>
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
               蒜粒期货 AI 助手 —— 基于 KAI 期算标准，让模型容量可计划、可交易、可保障。

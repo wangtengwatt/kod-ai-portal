@@ -43,7 +43,7 @@ function ChangelogPage() {
     <section className="bg-white">
       <div className="mx-auto max-w-3xl px-6 py-20 sm:py-28">
         <h1 className="text-4xl font-bold text-gray-900 sm:text-5xl">更新日志</h1>
-        <p className="mt-4 text-gray-600">记录 KOD 的每一次迭代与改进。</p>
+        <p className="mt-4 text-gray-600">记录 KOD蒜粒 的每一次迭代与改进。</p>
 
         <div className="mt-12 space-y-10">
           {releases.map((r, idx) => (

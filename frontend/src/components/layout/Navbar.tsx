@@ -43,6 +43,20 @@ export function Navbar() {
           ))}
           {isAuthenticated ? (
             <>
+              <Link
+                to="/wallet"
+                className="text-sm font-medium text-gray-600 hover:text-brand-600 transition-colors"
+                activeProps={{ className: 'text-brand-600' }}
+              >
+                钱包
+              </Link>
+              <Link
+                to="/dashboard"
+                className="text-sm font-medium text-gray-600 hover:text-brand-600 transition-colors"
+                activeProps={{ className: 'text-brand-600' }}
+              >
+                看板
+              </Link>
               <a
                 href={KOD_WEB_URL}
                 target="_blank"

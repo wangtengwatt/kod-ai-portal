@@ -30,6 +30,15 @@ public class User {
     /** 关联的中转站主键（注册时由邀请码解析）。 */
     private Long stationId;
 
+    /** 余额（元）。 */
+    private java.math.BigDecimal balance;
+
+    /** 历史累计消耗（元）。 */
+    private java.math.BigDecimal historicalConsumption;
+
+    /** 当前连接的 apikey_id，FK → relay_station_key.id。 */
+    private Long connect;
+
     /** 创建时间。 */
     private LocalDateTime createTime;
 }

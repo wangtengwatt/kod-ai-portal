@@ -2,8 +2,7 @@ package com.kod.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.kod.common.BizException;
-import com.kod.dto.RelayConfigResponse;
-import com.kod.dto.SaveRelayStationRequest;
+import com.kod.dto.*;
 import com.kod.entity.RelayStation;
 import com.kod.entity.RelayStationKey;
 import com.kod.entity.User;
@@ -17,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * AI 中转站服务：保存中转站信息（分两表），以及按用户查询中转站配置。
@@ -136,5 +136,35 @@ public class RelayStationService {
         String apiKey = keys.isEmpty() ? "" : keys.get(0).getApiKey();
         log.info("获取中转站配置成功，userId={}, stationId={}, hasApiKey={}", userId, station.getId(), !keys.isEmpty());
         return new RelayConfigResponse(station.getUrl(), apiKey);
+    }
+
+    // -------------------------------------------------------
+    // 中转站扩展（v2.0）
+    // -------------------------------------------------------
+
+    /**
+     * 获取所有中转站列表（供客户端下拉选择）。
+     */
+    public List<StationItem> listStations() {
+        List<RelayStation> stations = relayStationMapper.selectList(
+                Wrappers.<RelayStation>lambdaQuery().orderByAsc(RelayStation::getId));
+        return stations.stream()
+                .map(s -> new StationItem(s.getId(), s.getUrl(), s.getCreateTime()))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 获取某中转站下的 API Key 列表（按 status 排序：空闲在前，占用在后）。
+     */
+    public List<ApiKeyItem> listKeys(Long stationId) {
+        List<RelayStationKey> keys = relayStationKeyMapper.selectList(
+                Wrappers.<RelayStationKey>lambdaQuery()
+                        .eq(RelayStationKey::getStationId, stationId)
+                        .orderByAsc(RelayStationKey::getStatus)
+                        .orderByAsc(RelayStationKey::getId));
+        return keys.stream()
+                .map(k -> new ApiKeyItem(k.getId(), k.getStationId(), k.getApiKey(),
+                        k.getStatus() != null ? k.getStatus() : 0, k.getCreateTime()))
+                .collect(Collectors.toList());
     }
 }

@@ -64,6 +64,36 @@ kod:
     # token 有效期（毫秒），默认 7 天
     expire-millis: ${JWT_EXPIRE_MILLIS:604800000}
 
+# 支付配置（在 kod 层级内）
+  payment:
+    epay-enabled: ${EPAY_ENABLED:true}
+    stripe-enabled: ${STRIPE_ENABLED:false}
+    creem-enabled: ${CREEM_ENABLED:false}
+    waffo-enabled: ${WAFFO_ENABLED:false}
+    waffo-pancake-enabled: ${WAFFO_PANCAKE_ENABLED:false}
+    min-topup: ${MIN_TOPUP:1}
+    stripe-min-topup: ${STRIPE_MIN_TOPUP:1}
+    waffo-min-topup: ${WAFFO_MIN_TOPUP:1}
+    waffo-pancake-min-topup: ${WAFFO_PANCAKE_MIN_TOPUP:1}
+    amount-options: ${AMOUNT_OPTIONS:1,5,10,20,50,100}
+    compliance-confirmed: ${PAYMENT_COMPLIANCE_CONFIRMED:true}
+    compliance-terms-version: ${PAYMENT_COMPLIANCE_TERMS_VERSION:v1}
+    epay-pid: ${EPAY_PID:12456}
+    epay-key: ${EPAY_KEY:pf6QCl2MC0lc3ZKzJWrk}
+    epay-api-url: ${EPAY_API_URL:https://mzf.mapay.cc/xpay/epay/submit.php}
+    epay-mapi-url: ${EPAY_MAPI_URL:https://mzf.mapay.cc/xpay/epay/mapi.php}
+    epay-notify-url: ${EPAY_NOTIFY_URL:http://localhost:8080/api/payment/epay/notify}
+    epay-return-url: ${EPAY_RETURN_URL:http://localhost:3000/wallet}
+    pay-methods:
+      - name: 支付宝
+        type: alipay
+        color: "#1677FF"
+        min-topup: "1"
+      - name: 微信支付
+        type: wxpay
+        color: "#07C160"
+        min-topup: "1"
+
 # 日志级别
 logging:
   level:

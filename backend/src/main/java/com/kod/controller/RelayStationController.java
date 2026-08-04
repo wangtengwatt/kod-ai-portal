@@ -2,21 +2,16 @@ package com.kod.controller;
 
 import com.kod.common.BizException;
 import com.kod.common.Result;
-import com.kod.dto.RelayConfigResponse;
-import com.kod.dto.SaveApiKeyRequest;
-import com.kod.dto.SaveRelayStationRequest;
+import com.kod.dto.*;
 import com.kod.service.RelayStationService;
 import com.kod.util.JwtUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * AI 中转站接口。
@@ -73,6 +68,25 @@ public class RelayStationController {
         log.info("收到保存 API Key 请求，userId={}", userId);
         relayStationService.saveApiKey(userId, req.getApiKey());
         return Result.ok(null);
+    }
+
+    /**
+     * 获取所有中转站列表（供客户端下拉选择）。
+     */
+    @GetMapping("/list")
+    public Result<List<StationItem>> list() {
+        log.info("查询中转站列表");
+        return Result.ok(relayStationService.listStations());
+    }
+
+    /**
+     * 获取某中转站下的 API Key 列表。
+     * <p>按 status 排序：空闲(0,绿点)在前，占用中(1,红点)在后。</p>
+     */
+    @GetMapping("/{stationId}/keys")
+    public Result<List<ApiKeyItem>> keys(@PathVariable Long stationId) {
+        log.info("查询中转站 {} 的API Key列表", stationId);
+        return Result.ok(relayStationService.listKeys(stationId));
     }
 
     /* ---------- helper ---------- */

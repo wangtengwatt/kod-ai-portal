@@ -8,7 +8,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 中转站 API 密钥（第二表）。
+ * 中转站 API 密钥。
  *
  * <p>通过 {@link #stationId} 关联 {@link RelayStation} 主键。</p>
  */
@@ -25,6 +25,9 @@ public class RelayStationKey {
 
     /** API 密钥，例如 sk-xxxx 。 */
     private String apiKey;
+
+    /** 占用状态：0=空闲(绿点) 1=占用中(红点)。 */
+    private Integer status;
 
     /** 创建时间。 */
     private LocalDateTime createTime;

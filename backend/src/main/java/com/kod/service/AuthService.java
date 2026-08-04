@@ -1,8 +1,6 @@
 package com.kod.service;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.kod.common.BizException;
 import com.kod.dto.LoginRequest;
 import com.kod.dto.LoginResponse;
@@ -17,14 +15,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -43,11 +35,6 @@ public class AuthService {
     private static final Duration CODE_RATE_LIMIT = Duration.ofSeconds(60);
     private static final SecureRandom RANDOM = new SecureRandom();
 
-    /** 同步注册到中转站用的 HTTP 客户端（JDK 内置，无需额外依赖）。 */
-    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(5))
-            .build();
-
     private final UserMapper userMapper;
     private final RelayStationService relayStationService;
     private final PasswordEncoder passwordEncoder;
@@ -55,7 +42,6 @@ public class AuthService {
     private final JwtProperties jwtProperties;
     private final StringRedisTemplate stringRedisTemplate;
     private final EmailService emailService;
-    private final ObjectMapper objectMapper;
 
     /**
      * 发送邮箱验证码。
@@ -130,23 +116,7 @@ public class AuthService {
             userMapper.insert(user);
             log.info("注册成功，userId={}, 关联 stationId={}", user.getId(), station.getId());
 
-            // kod 注册已写入；事务提交成功后再同步注册到中转站，
-            // 满足"kod 注册成功后才请求中转站"的时序要求。
-            // 同步失败时回填 relayMessage，由前端给出明确提示，但不影响 kod 注册结果。
-            final LoginResponse response = new LoginResponse(issueToken(user.getId()), true, null);
-            final RelayStation registeredStation = station;
-            final String registeredEmail = req.getEmail();
-            final String registeredPassword = req.getPassword();
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    if (!registerOnRelayStation(registeredStation, registeredEmail, registeredPassword)) {
-                        response.setRelayMessage("账号已创建，但中转站同步注册失败，请联系管理员处理");
-                    }
-                }
-            });
-
-            return response;
+            return new LoginResponse(issueToken(user.getId()), true, null);
         }
 
         // 已存在用户：校验密码
@@ -169,59 +139,5 @@ public class AuthService {
             log.warn("写入 Redis token 失败（不影响登录）：{}", e.getMessage());
         }
         return token;
-    }
-
-    /**
-     * kod 注册成功后，同步将账号注册到中转站（new-api）。
-     *
-     * <p>仅传递 username（邮箱）与 password，不传验证码。
-     * 中转站 url 去除 /v1 后缀后拼接 new-api 注册接口路径 /api/user/register。
-     * 尽力而为：中转站注册失败仅记录日志，不影响 kod 侧注册结果。</p>
-     *
-     * @param station  中转站（含 url）
-     * @param email    用户邮箱，作为中转站 username
-     * @param password 明文密码
-     * @return true 表示中转站同步注册成功；false 表示失败或跳过
-     */
-    private boolean registerOnRelayStation(RelayStation station, String email, String password) {
-        String url = station.getUrl();
-        if (!StringUtils.hasText(url)) {
-            log.warn("中转站 url 为空，跳过同步注册，stationId={}", station.getId());
-            return false;
-        }
-        // 去除 /v1 后缀，拼接 new-api 注册接口路径
-        String registerUrl = url.replaceAll("/v1/?$", "") + "/api/user/register";
-
-        String body;
-        try {
-            ObjectNode node = objectMapper.createObjectNode();
-            node.put("username", email);
-            node.put("password", password);
-            body = objectMapper.writeValueAsString(node);
-        } catch (Exception e) {
-            log.warn("构造中转站注册请求体失败，stationId={}, err={}", station.getId(), e.getMessage());
-            return false;
-        }
-
-        try {
-            HttpResponse<String> resp = HTTP_CLIENT.send(
-                    HttpRequest.newBuilder(URI.create(registerUrl))
-                            .header("Content-Type", "application/json")
-                            .timeout(Duration.ofSeconds(10))
-                            .POST(HttpRequest.BodyPublishers.ofString(body))
-                            .build(),
-                    HttpResponse.BodyHandlers.ofString());
-            if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
-                log.info("中转站同步注册成功，stationId={}, email={}", station.getId(), email);
-                return true;
-            }
-            log.warn("中转站同步注册失败，stationId={}, status={}, body={}",
-                    station.getId(), resp.statusCode(), resp.body());
-            return false;
-        } catch (Exception e) {
-            log.warn("中转站同步注册异常，stationId={}, email={}, err={}",
-                    station.getId(), email, e.getMessage());
-            return false;
-        }
     }
 }

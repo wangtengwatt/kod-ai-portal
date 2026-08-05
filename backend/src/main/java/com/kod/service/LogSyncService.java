@@ -113,7 +113,7 @@ public class LogSyncService {
                         lastNewLogTime = System.currentTimeMillis();  // 有新日志 → 刷新活动时间
                         log.info("[LogSync] 本轮写入 {} 条", n);
                     }
-                    sleep(60_000);
+                    sleep(61_000);
                 } catch (Exception e) {
                     log.warn("[LogSync] 异常: {}，30s 后重试", e.getMessage());
                     sleep(30_000);
@@ -194,7 +194,8 @@ public class LogSyncService {
 
         // 1. 请求 new-api
         String url = apiBase + "/api/log/token";
-        log.info("[LogSync] 请求 new-api: {}", url);
+        log.info("[LogSync] 请求 new-api, url={}, keyId={}, apiKey={}", url, key.getId(),
+                apiKey.length() > 14 ? apiKey.substring(0, 7) + "..." + apiKey.substring(apiKey.length() - 4) : "***");
         HttpRequest req = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .header("Authorization", "Bearer " + apiKey)

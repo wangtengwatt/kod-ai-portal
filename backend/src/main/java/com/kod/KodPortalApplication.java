@@ -22,7 +22,10 @@ public class KodPortalApplication {
      */
     public static void main(String[] args) {
         // 自动加载项目根目录 .env 文件（本地开发），docker-compose 部署时已注入，加载失败不影响启动
-        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+        Dotenv dotenv = Dotenv.configure()
+                .directory("../")
+                .ignoreIfMissing()
+                .load();
         dotenv.entries().forEach(e -> System.setProperty(e.getKey(), e.getValue()));
 
         Environment env = SpringApplication.run(KodPortalApplication.class, args).getEnvironment();

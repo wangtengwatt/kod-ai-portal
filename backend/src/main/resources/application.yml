@@ -98,3 +98,20 @@ kod:
 logging:
   level:
     com.kod: info
+
+# 蒜宝助手配置
+assistant:
+  enabled: ${ASSISTANT_ENABLED:true}
+  base-url: ${ASSISTANT_BASE_URL:https://ai.kaiweb.net/v1}
+  api-key: ${ASSISTANT_API_KEY:}
+  model: ${ASSISTANT_MODEL:deepseek-v4-pro}
+  allowed-hosts: ${ASSISTANT_ALLOWED_HOSTS:}
+  connect-timeout: ${ASSISTANT_CONNECT_TIMEOUT:10s}
+  stream-timeout: ${ASSISTANT_STREAM_TIMEOUT:45s}
+  max-message-chars: ${ASSISTANT_MAX_MESSAGE_CHARS:1000}
+  max-messages: ${ASSISTANT_MAX_MESSAGES:8}
+  max-context-chars: ${ASSISTANT_MAX_CONTEXT_CHARS:4000}
+  max-per-minute-per-ip: ${ASSISTANT_MAX_PER_MINUTE_PER_IP:10}
+  max-daily-per-ip: ${ASSISTANT_MAX_DAILY_PER_IP:80}
+  max-daily-per-device: ${ASSISTANT_MAX_DAILY_PER_DEVICE:50}
+  max-concurrent-per-device: ${ASSISTANT_MAX_CONCURRENT_PER_DEVICE:1}

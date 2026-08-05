@@ -32,13 +32,6 @@ function DownloadPage() {
           <p className="mt-4 text-gray-600">选择你的平台，免费开始使用。基于 KAI 期算标准，让模型容量采购更简单。</p>
         </div>
 
-        {/* KAI 期算徽章 */}
-        <div className="mt-10 flex justify-center">
-          <span className="inline-flex items-center rounded-full border border-brand-200 bg-brand-50 px-4 py-1.5 text-sm font-medium text-brand-700">
-            KOD v0.2.0 · 内置 KAI 期算市场入口（即将开放）
-          </span>
-        </div>
-
         {/* 桌面端 */}
         <div className="mt-10">
           <h2 className="mb-6 text-base font-semibold uppercase tracking-wider text-gray-400">桌面端</h2>

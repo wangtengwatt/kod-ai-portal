@@ -1,56 +1,14 @@
 /**
- * 看板 API 层。
- *
- * 对标 new-api 看板接口，提供 /api/data/self、/api/data/flow/self
- * 以及 /api/dashboard/summary、/api/dashboard/hourly 等端点调用。
+ * Dashboard 数据 API —— 用量概览 / 趋势 / 配额查询。
  */
 
-/* ------------------------------------------------------------------ */
-/*  接口错误                                                            */
-/* ------------------------------------------------------------------ */
-
-export class ApiError extends Error {
-  code: number
-  constructor(code: number, message: string) {
-    super(message)
-    this.code = code
-    this.name = 'ApiError'
-  }
-}
+import { get } from './client'
 
 /* ------------------------------------------------------------------ */
-/*  类型定义 — 对标 new-api                                             */
+/*  类型                                                                */
 /* ------------------------------------------------------------------ */
 
-/** 对标 new-api QuotaDataItem。 */
-export interface QuotaDataItem {
-  id?: number
-  user_id?: number
-  username?: string
-  model_name?: string
-  created_at: number
-  token_used?: number
-  count?: number
-  quota?: number
-}
-
-/** 对标 new-api FlowQuotaDataItem。 */
-export interface FlowQuotaDataItem {
-  user_id?: number
-  username?: string
-  node_name?: string
-  token_id?: number
-  token_name?: string
-  use_group?: string
-  channel_id?: number
-  channel_name?: string
-  model_name?: string
-  token_used?: number
-  count?: number
-  quota?: number
-}
-
-/** 模型汇总条目。 */
+/** 模型汇总（GET /api/dashboard/summary 返回元素）。 */
 export interface DashboardSummaryItem {
   modelName: string
   totalRequests: number
@@ -60,92 +18,79 @@ export interface DashboardSummaryItem {
   totalTokens: number
   totalUseTime: number
   totalStream: number
-  lastRequestAt: number
+  lastRequestAt: string | null
 }
 
-/** 小时趋势条目。 */
+/** 小时趋势（GET /api/dashboard/hourly 返回元素）。 */
 export interface HourlyTrendItem {
-  hourBucket: number
+  hourBucket: string
   requestCount: number
   quota: number
   tokenUsed: number
   streamCount: number
 }
 
-/* ------------------------------------------------------------------ */
-/*  请求封装                                                            */
-/* ------------------------------------------------------------------ */
-
-interface ApiResult<T> {
-  code: number
-  message: string
-  data: T
+/** 配额数据（GET /api/data/self 返回元素，后端 @JsonProperty snake_case）。 */
+export interface QuotaDataItem {
+  id: number
+  user_id: number
+  username: string
+  model_name: string
+  created_at: string
+  token_used: number
+  count: number
+  quota: number
 }
 
-async function get<T>(path: string, token: string, params?: Record<string, string>): Promise<T> {
-  const url = path + (params ? '?' + new URLSearchParams(params).toString() : '')
-
-  let resp: Response
-  try {
-    resp = await fetch(url, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${token}` },
-      cache: 'no-store',
-    })
-  } catch {
-    throw new ApiError(0, '网络异常，请检查网络连接')
-  }
-
-  if (!resp.ok) {
-    let message = `请求失败 (${resp.status})`
-    try {
-      const err = await resp.json()
-      if (err.message) message = err.message
-    } catch { /* ignore */ }
-    throw new ApiError(resp.status, message)
-  }
-
-  const result: ApiResult<T> = await resp.json()
-  if (result.code !== 0) {
-    throw new ApiError(result.code, result.message || '请求失败')
-  }
-  return result.data
+/** 流量配额数据（GET /api/data/flow/self 返回元素，后端 @JsonProperty snake_case）。 */
+export interface FlowQuotaDataItem {
+  user_id: number
+  username: string
+  node_name: string
+  token_name: string
+  use_group: string
+  channel_id: number
+  channel_name: string
+  model_name: string
+  token_used: number
+  count: number
+  quota: number
 }
 
 /* ------------------------------------------------------------------ */
 /*  API 方法                                                            */
 /* ------------------------------------------------------------------ */
 
-/** 对标 new-api GET /api/data/self — 按时间范围查询用量数据。 */
-export async function getUserQuotaDates(
-  token: string,
+/** 获取各模型累计汇总。 */
+export function getDashboardSummary(): Promise<DashboardSummaryItem[]> {
+  return get<DashboardSummaryItem[]>('/api/dashboard/summary')
+}
+
+/** 获取最近 N 小时趋势（默认 24，最大 720）。 */
+export function getDashboardHourly(hours = 24): Promise<HourlyTrendItem[]> {
+  return get<HourlyTrendItem[]>('/api/dashboard/hourly', {
+    hours: String(hours),
+  })
+}
+
+/** 获取指定时间范围内的配额数据（毫秒时间戳，最大跨度 30 天）。 */
+export function getQuotaData(
   startTimestamp: number,
   endTimestamp: number,
 ): Promise<QuotaDataItem[]> {
-  return get<QuotaDataItem[]>('/api/data/self', token, {
+  return get<QuotaDataItem[]>('/api/data/self', {
     start_timestamp: String(startTimestamp),
     end_timestamp: String(endTimestamp),
   })
 }
 
-/** 对标 new-api GET /api/data/flow/self — 按时间范围查询流量数据。 */
-export async function getFlowQuotaDates(
-  token: string,
+/** 获取指定时间范围内的流量配额数据（按渠道分组）。 */
+export function getFlowQuotaData(
   startTimestamp: number,
   endTimestamp: number,
 ): Promise<FlowQuotaDataItem[]> {
-  return get<FlowQuotaDataItem[]>('/api/data/flow/self', token, {
+  return get<FlowQuotaDataItem[]>('/api/data/flow/self', {
     start_timestamp: String(startTimestamp),
     end_timestamp: String(endTimestamp),
   })
-}
-
-/** 获取模型用量汇总。 */
-export async function getDashboardSummary(token: string): Promise<DashboardSummaryItem[]> {
-  return get<DashboardSummaryItem[]>('/api/dashboard/summary', token)
-}
-
-/** 获取小时用量趋势。 */
-export async function getDashboardHourly(token: string, hours = 24): Promise<HourlyTrendItem[]> {
-  return get<HourlyTrendItem[]>('/api/dashboard/hourly', token, { hours: String(hours) })
 }

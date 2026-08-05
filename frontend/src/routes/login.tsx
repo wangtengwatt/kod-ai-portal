@@ -10,7 +10,7 @@ export const Route = createFileRoute('/login')({
       typeof search.redirect === 'string' &&
       (search.redirect.startsWith('/') || search.redirect.startsWith('http'))
         ? search.redirect
-        : '/',
+        : '/console',
   }),
   component: LoginPage,
 })
@@ -70,7 +70,7 @@ function LoginPage() {
   const [showPwd, setShowPwd] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [shakeKey, setShakeKey] = useState(0) // 每次递增以重新触发抖动
+  const [shakeKey, setShakeKey] = useState(0)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -101,14 +101,14 @@ function LoginPage() {
 
   return (
     <div className="relative flex min-h-[calc(100vh-10rem)] items-center justify-center overflow-hidden px-4">
-      {/* ---- animated background blobs ---- */}
+      {/* animated background blobs */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="animate-blob absolute -top-40 -right-32 h-72 w-72 rounded-full bg-brand-100/60 blur-3xl" />
         <div className="animate-blob animation-delay-2000 absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-brand-50/80 blur-3xl" />
         <div className="animate-blob animation-delay-4000 absolute top-1/3 left-1/3 h-64 w-64 rounded-full bg-purple-100/40 blur-3xl" />
       </div>
 
-      {/* ---- floating particles ---- */}
+      {/* floating particles */}
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div className="animate-float absolute left-[10%] top-[15%] h-2 w-2 rounded-full bg-brand-300/30" style={{ animationDelay: '0s' }} />
         <div className="animate-float absolute left-[85%] top-[20%] h-1.5 w-1.5 rounded-full bg-brand-400/25" style={{ animationDelay: '0.8s' }} />
@@ -118,29 +118,22 @@ function LoginPage() {
         <div className="animate-float absolute left-[30%] top-[85%] h-2 w-2 rounded-full bg-purple-200/25" style={{ animationDelay: '4s' }} />
       </div>
 
-      {/* ---- card ---- */}
+      {/* card */}
       <div
         key={shakeKey}
         className="w-full max-w-md animate-fade-in-up rounded-2xl border border-white/40 bg-white/70 p-8 shadow-xl shadow-brand-100/30 backdrop-blur-xl"
       >
-        {/* logo with glow */}
         <div className="mb-8 text-center">
           <div className="animate-pulse-glow mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-xl font-bold text-white shadow-lg shadow-brand-500/30">
             k
           </div>
           <h1 className="text-2xl font-bold text-gray-900">欢迎回来</h1>
-          <p className="mt-1.5 text-sm text-gray-500">
-            登录你的 kod 账号
-          </p>
+          <p className="mt-1.5 text-sm text-gray-500">登录你的 kod 账号</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* error toast with shake */}
           {error && (
-            <div
-              key={error}
-              className="animate-shake rounded-xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-700 backdrop-blur shadow-sm shadow-red-100/50"
-            >
+            <div key={error} className="animate-shake rounded-xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-700 backdrop-blur shadow-sm shadow-red-100/50">
               <span className="flex items-center gap-2">
                 <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
@@ -152,10 +145,7 @@ function LoginPage() {
 
           {/* email */}
           <div className="group">
-            <label
-              htmlFor="login-email"
-              className="mb-1.5 block text-sm font-medium text-gray-700 transition-colors group-focus-within:text-brand-600"
-            >
+            <label htmlFor="login-email" className="mb-1.5 block text-sm font-medium text-gray-700 transition-colors group-focus-within:text-brand-600">
               邮箱
             </label>
             <div className="relative">
@@ -163,10 +153,7 @@ function LoginPage() {
                 <MailIcon />
               </div>
               <input
-                id="login-email"
-                type="email"
-                autoComplete="email"
-                required
+                id="login-email" type="email" autoComplete="email" required
                 value={email}
                 onChange={(e) => { setEmail(e.target.value); setError(null) }}
                 placeholder="your@email.com"
@@ -177,10 +164,7 @@ function LoginPage() {
 
           {/* password */}
           <div className="group">
-            <label
-              htmlFor="login-password"
-              className="mb-1.5 block text-sm font-medium text-gray-700 transition-colors group-focus-within:text-brand-600"
-            >
+            <label htmlFor="login-password" className="mb-1.5 block text-sm font-medium text-gray-700 transition-colors group-focus-within:text-brand-600">
               密码
             </label>
             <div className="relative">
@@ -188,59 +172,26 @@ function LoginPage() {
                 <LockIcon />
               </div>
               <input
-                id="login-password"
-                type={showPwd ? 'text' : 'password'}
-                autoComplete="current-password"
-                required
+                id="login-password" type={showPwd ? 'text' : 'password'} autoComplete="current-password" required
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(null) }}
                 placeholder="••••••••"
                 className="block w-full rounded-xl border border-gray-200 bg-white/80 py-2.5 pl-10 pr-11 text-sm shadow-sm placeholder:text-gray-400 transition-all duration-300 focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:shadow-md focus:shadow-brand-100/30"
               />
-              <button
-                type="button"
-                onClick={() => setShowPwd(!showPwd)}
-                className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 transition-all duration-200 hover:text-gray-600 hover:scale-110"
-                tabIndex={-1}
-              >
+              <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 transition-all duration-200 hover:text-gray-600 hover:scale-110" tabIndex={-1}>
                 {showPwd ? <EyeOffIcon /> : <EyeIcon />}
               </button>
             </div>
           </div>
 
-          {/* submit */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="relative flex w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all duration-300 hover:from-brand-700 hover:to-brand-600 hover:shadow-brand-500/35 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 disabled:hover:from-brand-600 disabled:hover:to-brand-500"
-          >
-            {loading ? (
-              <span className="flex items-center">
-                <Spinner />
-                登录中...
-              </span>
-            ) : (
-              '登录'
-            )}
+          <button type="submit" disabled={loading} className="w-full rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all hover:from-brand-500 hover:to-brand-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100">
+            {loading ? <span className="flex items-center justify-center"><Spinner />登录中...</span> : '登录'}
           </button>
-
-          {/* switch to register */}
-          <p className="text-center text-sm text-gray-500">
-            还没有账号？{' '}
-            <button
-              type="button"
-              className="relative inline-block font-semibold text-brand-600 transition-all duration-200 hover:text-brand-500 after:absolute after:bottom-0 after:left-0 after:h-[1.5px] after:w-0 after:bg-brand-500 after:transition-all after:duration-300 hover:after:w-full"
-              onClick={() =>
-                navigate({
-                  to: '/register',
-                  search: redirect !== '/' ? { redirect } : undefined,
-                })
-              }
-            >
-              立即注册
-            </button>
-          </p>
         </form>
+        <p className="mt-4 text-center text-xs text-gray-400">
+          还没有账号？
+          <a href="/register" className="ml-1 font-medium text-brand-600 hover:text-brand-700">立即注册</a>
+        </p>
       </div>
     </div>
   )

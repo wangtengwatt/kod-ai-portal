@@ -23,7 +23,6 @@ export function Footer() {
               <ul className="mt-3 space-y-2 text-gray-500">
                 <li><Link to="/kai" className="hover:text-brand-600">白皮书</Link></li>
                 <li><Link to="/features" className="hover:text-brand-600">交易能力</Link></li>
-                <li><Link to="/pricing" className="hover:text-brand-600">市场费用</Link></li>
               </ul>
             </div>
             <div>

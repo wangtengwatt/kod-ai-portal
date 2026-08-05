@@ -29,20 +29,6 @@ function LockIcon() {
     </svg>
   )
 }
-function HashIcon() {
-  return (
-    <svg className="h-5 w-5 text-gray-400 transition-colors group-focus-within:text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 8.25h15m-16.5 7.5h15m-1.8-13.5l-3.9 19.5m-2.1-19.5l-3.9 19.5" />
-    </svg>
-  )
-}
-function TicketIcon() {
-  return (
-    <svg className="h-5 w-5 text-gray-400 transition-colors group-focus-within:text-brand-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026c.7.163 1.237.785 1.237 1.599s-.537 1.436-1.237 1.599v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026c-.7-.163-1.237-.785-1.237-1.599s.537-1.436 1.237-1.599V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
-    </svg>
-  )
-}
 function EyeIcon() {
   return (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -58,20 +44,6 @@ function EyeOffIcon() {
     </svg>
   )
 }
-function SendIcon() {
-  return (
-    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-    </svg>
-  )
-}
-function CheckIcon() {
-  return (
-    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-    </svg>
-  )
-}
 function Spinner() {
   return (
     <svg className="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -81,339 +53,140 @@ function Spinner() {
   )
 }
 
-/* ---------- 密码强度条 ---------- */
-function passwordStrength(pwd: string): { score: number; label: string; color: string } {
-  if (!pwd) return { score: 0, label: '', color: 'bg-gray-200' }
-  let score = 0
-  if (pwd.length >= 8) score++
-  if (pwd.length >= 12) score++
-  if (/[A-Z]/.test(pwd)) score++
-  if (/[0-9]/.test(pwd)) score++
-  if (/[^A-Za-z0-9]/.test(pwd)) score++
-  if (score <= 1) return { score: 1, label: '弱', color: 'bg-red-400' }
-  if (score <= 2) return { score: 2, label: '一般', color: 'bg-yellow-400' }
-  if (score <= 3) return { score: 3, label: '良好', color: 'bg-green-400' }
-  return { score: 4, label: '强', color: 'bg-green-500' }
-}
-
-/* ---------- component ---------- */
-
 function RegisterPage() {
   const navigate = useNavigate()
   const { redirect } = Route.useSearch()
   const { login } = useAuth()
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [password, setPassword] = useState('')
-  const [showPwd, setShowPwd] = useState(false)
   const [inviteCode, setInviteCode] = useState('')
+  const [showPwd, setShowPwd] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [shakeKey, setShakeKey] = useState(0)
-  // kod 注册成功但中转站同步失败时的提示
-  const [relayWarning, setRelayWarning] = useState<string | null>(null)
-
-  // 发送验证码
   const [sending, setSending] = useState(false)
-  const [countdown, setCountdown] = useState(0)
   const [sendOk, setSendOk] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [countdown, setCountdown] = useState(0)
 
   useEffect(() => {
-    if (countdown <= 0) {
-      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
-      return
-    }
-    timerRef.current = setInterval(() => setCountdown((n) => n - 1), 1000)
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
-  }, [countdown])
+  }, [])
 
-  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current) }, [])
+  const startCountdown = useCallback(() => {
+    setCountdown(60)
+    timerRef.current = setInterval(() => {
+      setCountdown((c) => { if (c <= 1) { if (timerRef.current) clearInterval(timerRef.current); return 0 }; return c - 1 })
+    }, 1000)
+  }, [])
 
   const handleSendCode = useCallback(async () => {
-    if (!email.trim()) { setError('请先填写邮箱'); setShakeKey((k) => k + 1); return }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) { setError('邮箱格式不正确'); setShakeKey((k) => k + 1); return }
-    setError(null)
-    setSending(true)
+    if (!email.trim()) { setError('请先输入邮箱'); return }
+    setSending(true); setError(null); setSendOk(false)
     try {
       await sendCodeApi(email.trim())
       setSendOk(true)
-      setCountdown(60)
-      setTimeout(() => setSendOk(false), 3000)
+      startCountdown()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '发送失败，请重试')
-      setShakeKey((k) => k + 1)
-    } finally {
-      setSending(false)
-    }
-  }, [email])
+      setError(err instanceof Error ? err.message : '发送失败')
+    } finally { setSending(false) }
+  }, [email, startCountdown])
+
+  const passwordStrength = (pwd: string): { label: string; color: string; width: string } => {
+    if (pwd.length < 6) return { label: '弱', color: 'bg-red-500', width: 'w-1/4' }
+    if (pwd.length < 8) return { label: '一般', color: 'bg-orange-500', width: 'w-2/4' }
+    if (pwd.length < 10 || !/[A-Z]/.test(pwd) || !/[0-9]/.test(pwd)) return { label: '良好', color: 'bg-amber-500', width: 'w-3/4' }
+    return { label: '强', color: 'bg-emerald-500', width: 'w-full' }
+  }
 
   async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
-    setRelayWarning(null)
-
-    if (!email.trim() || !password || !code.trim() || !inviteCode.trim()) {
-      setError('请填写所有字段')
-      setShakeKey((k) => k + 1)
-      return
+    e.preventDefault(); setError(null)
+    if (!email.trim() || !password.trim() || !code.trim() || !inviteCode.trim()) {
+      setError('请填写所有字段'); return
     }
-    if (code.trim().length !== 6 || !/^\d+$/.test(code.trim())) {
-      setError('验证码为 6 位数字')
-      setShakeKey((k) => k + 1)
-      return
-    }
-    if (password.length < 8) {
-      setError('密码长度不能少于 8 位')
-      setShakeKey((k) => k + 1)
-      return
-    }
-
     setLoading(true)
     try {
       const { token, relayMessage } = await registerApi(email.trim(), password, inviteCode.trim(), code.trim())
       login(token)
-      if (relayMessage) {
-        // kod 注册成功，但中转站同步失败：展示提示后延迟跳转
-        setRelayWarning(relayMessage)
-        setTimeout(() => { navigate({ to: redirect }) }, 3000)
-      } else {
-        await navigate({ to: redirect })
-      }
+      if (relayMessage) alert(relayMessage)
+      await navigate({ to: redirect })
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '注册失败，请重试')
-      setShakeKey((k) => k + 1)
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   const strength = passwordStrength(password)
 
   return (
     <div className="relative flex min-h-[calc(100vh-10rem)] items-center justify-center overflow-hidden px-4">
-      {/* ---- animated background blobs ---- */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="animate-blob absolute -top-40 -right-32 h-72 w-72 rounded-full bg-brand-100/60 blur-3xl" />
         <div className="animate-blob animation-delay-2000 absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-brand-50/80 blur-3xl" />
-        <div className="animate-blob animation-delay-4000 absolute top-1/3 left-1/3 h-64 w-64 rounded-full bg-purple-100/40 blur-3xl" />
       </div>
-
-      {/* ---- floating particles ---- */}
-      <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div className="animate-float absolute left-[8%] top-[18%] h-2 w-2 rounded-full bg-brand-300/30" style={{ animationDelay: '0s' }} />
-        <div className="animate-float absolute left-[88%] top-[25%] h-1.5 w-1.5 rounded-full bg-brand-400/25" style={{ animationDelay: '0.7s' }} />
-        <div className="animate-float absolute left-[12%] top-[78%] h-2.5 w-2.5 rounded-full bg-purple-300/25" style={{ animationDelay: '1.4s' }} />
-        <div className="animate-float absolute left-[82%] top-[68%] h-1.5 w-1.5 rounded-full bg-brand-200/30" style={{ animationDelay: '2.1s' }} />
-        <div className="animate-float absolute left-[55%] top-[8%] h-1 w-1 rounded-full bg-brand-400/30" style={{ animationDelay: '2.8s' }} />
-        <div className="animate-float absolute left-[25%] top-[88%] h-2 w-2 rounded-full bg-purple-200/25" style={{ animationDelay: '3.5s' }} />
-      </div>
-
-      {/* ---- card ---- */}
-      <div
-        key={shakeKey}
-        className="w-full max-w-md animate-fade-in-up rounded-2xl border border-white/40 bg-white/70 p-8 shadow-xl shadow-brand-100/30 backdrop-blur-xl"
-      >
-        {/* logo with glow */}
+      <div className="w-full max-w-md animate-fade-in-up rounded-2xl border border-white/40 bg-white/70 p-8 shadow-xl backdrop-blur-xl">
         <div className="mb-8 text-center">
-          <div className="animate-pulse-glow mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-xl font-bold text-white shadow-lg shadow-brand-500/30">
-            k
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">创建账号</h1>
-          <p className="mt-1.5 text-sm text-gray-500">
-            验证邮箱，加入 kod
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">注册账号</h1>
+          <p className="mt-1.5 text-sm text-gray-500">使用邀请码注册 KOD</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* error toast with shake */}
           {error && (
-            <div
-              key={error}
-              className="animate-shake rounded-xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-700 backdrop-blur shadow-sm shadow-red-100/50"
-            >
-              <span className="flex items-center gap-2">
-                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
-                </svg>
-                {error}
-              </span>
-            </div>
+            <div className="animate-shake rounded-xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-700">{error}</div>
           )}
 
-          {/* 中转站同步失败提示（kod 注册已成功） */}
-          {relayWarning && (
-            <div className="animate-fade-in rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-800 backdrop-blur shadow-sm shadow-amber-100/50">
-              <span className="flex items-center gap-2">
-                <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9 5.25a7.5 7.5 0 1115 0H3zm9-2.25h.008v.008H12v-.008z" />
-                </svg>
-                {relayWarning}
-              </span>
-            </div>
-          )}
-
-          {/* email + send code */}
           <div className="group">
-            <label htmlFor="reg-email" className="mb-1.5 block text-sm font-medium text-gray-700 transition-colors group-focus-within:text-brand-600">邮箱</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">邮箱</label>
+            <div className="relative">
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5"><MailIcon /></div>
+              <input type="email" autoComplete="email" required value={email} onChange={e => { setEmail(e.target.value); setError(null) }} placeholder="your@email.com"
+                className="block w-full rounded-xl border border-gray-200 bg-white/80 py-2.5 pl-10 pr-4 text-sm shadow-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">验证码</label>
             <div className="flex gap-2">
-              <div className="relative flex-1">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                  <MailIcon />
-                </div>
-                <input
-                  id="reg-email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => { setEmail(e.target.value); setError(null) }}
-                  placeholder="your@email.com"
-                  className="block w-full rounded-xl border border-gray-200 bg-white/80 py-2.5 pl-10 pr-4 text-sm shadow-sm placeholder:text-gray-400 transition-all duration-300 focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:shadow-md focus:shadow-brand-100/30"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={handleSendCode}
-                disabled={sending || countdown > 0 || !email.trim()}
-                className={`shrink-0 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-300 active:scale-95 disabled:cursor-not-allowed ${
-                  sendOk
-                    ? 'animate-success-pop border border-green-400 bg-green-50 text-green-600'
-                    : 'border border-brand-500 bg-white text-brand-600 hover:bg-brand-50 hover:shadow-md hover:shadow-brand-100/30 disabled:border-gray-200 disabled:text-gray-400 disabled:hover:shadow-none'
-                }`}
-              >
-                <span className="flex items-center gap-1.5">
-                  {sending ? <Spinner /> : sendOk ? <CheckIcon /> : countdown > 0 ? null : <SendIcon />}
-                  {sending ? '发送中' : sendOk ? '已发送' : countdown > 0 ? `${countdown}s` : '获取验证码'}
-                </span>
+              <input type="text" maxLength={6} required value={code} onChange={e => { setCode(e.target.value); setError(null) }} placeholder="6位验证码"
+                className="flex-1 rounded-xl border border-gray-200 bg-white/80 py-2.5 px-4 text-sm shadow-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
+              <button type="button" disabled={sending || countdown > 0} onClick={handleSendCode}
+                className="shrink-0 rounded-xl bg-brand-50 px-4 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-100 disabled:opacity-50">
+                {countdown > 0 ? `${countdown}s` : sending ? '发送中' : sendOk ? '已发送' : '发送验证码'}
               </button>
             </div>
           </div>
 
-          {/* verification code */}
           <div className="group">
-            <label htmlFor="reg-code" className="mb-1.5 block text-sm font-medium text-gray-700 transition-colors group-focus-within:text-brand-600">验证码</label>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">密码</label>
             <div className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                <HashIcon />
-              </div>
-              <input
-                id="reg-code"
-                type="text"
-                autoComplete="one-time-code"
-                required
-                maxLength={6}
-                value={code}
-                onChange={(e) => { setCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setError(null) }}
-                placeholder="6 位数字验证码"
-                className="block w-full rounded-xl border border-gray-200 bg-white/80 py-2.5 pl-10 pr-4 text-sm tracking-[0.3em] shadow-sm placeholder:tracking-normal placeholder:text-gray-400 transition-all duration-300 focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:shadow-md focus:shadow-brand-100/30"
-              />
-            </div>
-          </div>
-
-          {/* password */}
-          <div className="group">
-            <label htmlFor="reg-password" className="mb-1.5 block text-sm font-medium text-gray-700 transition-colors group-focus-within:text-brand-600">密码</label>
-            <div className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                <LockIcon />
-              </div>
-              <input
-                id="reg-password"
-                type={showPwd ? 'text' : 'password'}
-                autoComplete="new-password"
-                required
-                minLength={8}
-                maxLength={20}
-                value={password}
-                onChange={(e) => { setPassword(e.target.value); setError(null) }}
-                placeholder="8-20 位"
-                className="block w-full rounded-xl border border-gray-200 bg-white/80 py-2.5 pl-10 pr-11 text-sm shadow-sm placeholder:text-gray-400 transition-all duration-300 focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:shadow-md focus:shadow-brand-100/30"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPwd(!showPwd)}
-                className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 transition-all duration-200 hover:text-gray-600 hover:scale-110"
-                tabIndex={-1}
-              >
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5"><LockIcon /></div>
+              <input type={showPwd ? 'text' : 'password'} autoComplete="new-password" required minLength={8} value={password} onChange={e => { setPassword(e.target.value); setError(null) }} placeholder="至少 8 位"
+                className="block w-full rounded-xl border border-gray-200 bg-white/80 py-2.5 pl-10 pr-11 text-sm shadow-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
+              <button type="button" onClick={() => setShowPwd(!showPwd)} className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 hover:text-gray-600" tabIndex={-1}>
                 {showPwd ? <EyeOffIcon /> : <EyeIcon />}
               </button>
             </div>
-            {/* 密码强度指示器 */}
             {password && (
-              <div className="mt-2 animate-fade-in">
-                <div className="flex h-1.5 gap-1 overflow-hidden rounded-full">
-                  {[1, 2, 3, 4].map((level) => (
-                    <div
-                      key={level}
-                      className={`h-full flex-1 rounded-full transition-all duration-500 ${
-                        level <= strength.score ? strength.color : 'bg-gray-200'
-                      }`}
-                    />
-                  ))}
-                </div>
-                <p className={`mt-1 text-xs font-medium transition-colors duration-300 ${
-                  strength.score <= 1 ? 'text-red-500' :
-                  strength.score <= 2 ? 'text-yellow-500' :
-                  'text-green-500'
-                }`}>
-                  {strength.label}
-                </p>
+              <div className="mt-2 flex items-center gap-2">
+                <div className="h-1.5 flex-1 rounded-full bg-gray-200"><div className={`h-full rounded-full transition-all ${strength.color} ${strength.width}`} /></div>
+                <span className="text-xs text-gray-500">{strength.label}</span>
               </div>
             )}
           </div>
 
-          {/* invite code */}
-          <div className="group">
-            <label htmlFor="reg-invite" className="mb-1.5 block text-sm font-medium text-gray-700 transition-colors group-focus-within:text-brand-600">邀请码</label>
-            <div className="relative">
-              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-                <TicketIcon />
-              </div>
-              <input
-                id="reg-invite"
-                type="text"
-                autoComplete="off"
-                required
-                value={inviteCode}
-                onChange={(e) => { setInviteCode(e.target.value); setError(null) }}
-                placeholder="请输入邀请码"
-                className="block w-full rounded-xl border border-gray-200 bg-white/80 py-2.5 pl-10 pr-4 text-sm shadow-sm placeholder:text-gray-400 transition-all duration-300 focus:border-brand-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:shadow-md focus:shadow-brand-100/30"
-              />
-            </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-gray-700">邀请码</label>
+            <input type="text" required value={inviteCode} onChange={e => { setInviteCode(e.target.value); setError(null) }} placeholder="输入邀请码"
+              className="block w-full rounded-xl border border-gray-200 bg-white/80 py-2.5 px-4 text-sm shadow-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20" />
           </div>
 
-          {/* submit */}
-          <button
-            type="submit"
-            disabled={loading || !!relayWarning}
-            className="relative flex w-full items-center justify-center overflow-hidden rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 py-2.5 text-sm font-semibold text-white shadow-lg shadow-brand-500/25 transition-all duration-300 hover:from-brand-700 hover:to-brand-600 hover:shadow-brand-500/35 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100 disabled:hover:from-brand-600 disabled:hover:to-brand-500"
-          >
-            {loading ? (
-              <span className="flex items-center">
-                <Spinner />
-                注册中...
-              </span>
-            ) : (
-              '注册'
-            )}
+          <button type="submit" disabled={loading} className="w-full rounded-xl bg-gradient-to-r from-brand-600 to-brand-700 py-3 text-sm font-semibold text-white shadow-lg hover:from-brand-500 active:scale-[0.98] disabled:opacity-60">
+            {loading ? <span className="flex items-center justify-center"><Spinner />注册中...</span> : '注册'}
           </button>
-
-          {/* switch to login */}
-          <p className="text-center text-sm text-gray-500">
-            已有账号？{' '}
-            <button
-              type="button"
-              className="relative inline-block font-semibold text-brand-600 transition-all duration-200 hover:text-brand-500 after:absolute after:bottom-0 after:left-0 after:h-[1.5px] after:w-0 after:bg-brand-500 after:transition-all after:duration-300 hover:after:w-full"
-              onClick={() =>
-                navigate({ to: '/login', search: redirect !== '/' ? { redirect } : undefined })
-              }
-            >
-              去登录
-            </button>
-          </p>
         </form>
+        <p className="mt-4 text-center text-xs text-gray-400">
+          已有账号？<a href="/login" className="ml-1 font-medium text-brand-600 hover:text-brand-700">去登录</a>
+        </p>
       </div>
     </div>
   )

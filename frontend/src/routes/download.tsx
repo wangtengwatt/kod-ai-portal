@@ -13,7 +13,15 @@ type PlatformRelease = {
   version: string
   status: 'available' | 'coming-soon'
   downloadUrl?: string
+  fileSize?: string
+  sha256?: string
 }
+
+const androidDownloadUrl = import.meta.env.VITE_KOD_ANDROID_DOWNLOAD_URL?.trim()
+const androidVersion = import.meta.env.VITE_KOD_ANDROID_VERSION?.trim() || '测试版'
+const androidSha256 = import.meta.env.VITE_KOD_ANDROID_SHA256?.trim()
+const androidFileSize = import.meta.env.VITE_KOD_ANDROID_FILE_SIZE?.trim()
+const isAndroidDownloadAvailable = Boolean(androidDownloadUrl?.startsWith('https://'))
 
 const releases: PlatformRelease[] = [
   {
@@ -43,10 +51,13 @@ const releases: PlatformRelease[] = [
   {
     name: 'Android',
     description: '适用于 Android 手机和平板',
-    requirements: 'Android 8.0 及以上',
+    requirements: 'Android 6.0 及以上',
     icon: 'Android',
-    version: '规划中',
-    status: 'coming-soon',
+    version: isAndroidDownloadAvailable ? androidVersion : '规划中',
+    status: isAndroidDownloadAvailable ? 'available' : 'coming-soon',
+    downloadUrl: isAndroidDownloadAvailable ? androidDownloadUrl : undefined,
+    fileSize: isAndroidDownloadAvailable ? androidFileSize : undefined,
+    sha256: isAndroidDownloadAvailable ? androidSha256 : undefined,
   },
   {
     name: 'iOS',
@@ -99,6 +110,10 @@ function DownloadPage() {
             <h2 className="mt-6 text-xl font-semibold text-gray-900">{release.name}</h2>
             <p className="mt-2 text-sm text-gray-600">{release.description}</p>
             <p className="mt-2 text-sm text-gray-500">系统要求：{release.requirements}</p>
+            {release.fileSize ? <p className="mt-2 text-xs text-gray-500">文件大小：{release.fileSize}</p> : null}
+            {release.sha256 ? (
+              <p className="mt-2 break-all text-xs text-gray-500">SHA-256：{release.sha256}</p>
+            ) : null}
 
             <div className="mt-auto pt-6">
               {release.status === 'available' && release.downloadUrl ? (

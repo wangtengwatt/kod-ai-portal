@@ -10,13 +10,32 @@ import {
   type TopUpInfo,
   type WalletInfo,
   type TopUpItem,
-  type PayMethod,
 } from '@/api/wallet'
-import { Loader2, Wallet, History, ExternalLink, TrendingUp, Clock, CheckCircle2, XCircle } from 'lucide-react'
+import { Loader2, Wallet, History, ExternalLink, TrendingUp, Clock, CheckCircle2, XCircle, AlertCircle, Tag } from 'lucide-react'
 
 export const Route = createFileRoute('/wallet')({
   component: WalletPage,
 })
+
+/* ------------------------------------------------------------------ */
+/*  常量                                                               */
+/* ------------------------------------------------------------------ */
+
+/** 支付方式中文名称映射。 */
+const PAY_METHOD_LABELS: Record<string, string> = {
+  alipay: '支付宝',
+  wxpay: '微信支付',
+  online: '在线支付',
+  stripe: 'Stripe',
+  creem: 'Creem',
+  waffo: 'Waffo',
+  waffo_pancake: 'Waffo Pancake',
+}
+
+/** 支付方式 / provider -> 显示名称。 */
+function payLabel(raw: string): string {
+  return PAY_METHOD_LABELS[raw] || raw
+}
 
 /* ------------------------------------------------------------------ */
 /*  子组件                                                            */
@@ -70,56 +89,123 @@ function BalanceCard({ wallet, loading }: { wallet: WalletInfo | null; loading: 
 /** 充值面板 */
 function TopUpPanel({
   info,
-  token,
   onSuccess,
 }: {
   info: TopUpInfo
-  token: string
   onSuccess: () => void
 }) {
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null)
-  const [selectedMethod, setSelectedMethod] = useState<PayMethod | null>(null)
+  const [customAmount, setCustomAmount] = useState('')
+  const [selectedMethod, setSelectedMethod] = useState<string | null>(null)
   const [calcMoney, setCalcMoney] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [calcLoading, setCalcLoading] = useState(false)
+  const [payLoading, setPayLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleAmountSelect = useCallback(
-    async (amount: number) => {
-      setSelectedAmount(amount)
-      setError(null)
-      try {
-        const money = await calculateAmount(token, amount)
-        setCalcMoney(money)
-      } catch {
-        setCalcMoney(String(amount))
-      }
-    },
-    [token],
-  )
+  /** 有效充值金额：优先自定义，否则预设。 */
+  const effectiveAmount = customAmount ? Number(customAmount) : selectedAmount
 
+  /** 选择预设金额。 */
+  const handleAmountSelect = useCallback(async (amount: number) => {
+    setSelectedAmount(amount)
+    setCustomAmount('')
+    setError(null)
+    setCalcLoading(true)
+    try {
+      const money = await calculateAmount(amount)
+      setCalcMoney(money)
+    } catch {
+      setCalcMoney(String(amount))
+    } finally {
+      setCalcLoading(false)
+    }
+  }, [])
+
+  /** 自定义金额变更后防抖计算实付。 */
+  const handleCustomAmountChange = useCallback(async (value: string) => {
+    setCustomAmount(value)
+    setSelectedAmount(null)
+    setError(null)
+    const amt = Number(value)
+    if (!amt || amt <= 0) {
+      setCalcMoney(null)
+      return
+    }
+    setCalcLoading(true)
+    try {
+      const money = await calculateAmount(amt)
+      setCalcMoney(money)
+    } catch {
+      setCalcMoney(String(amt))
+    } finally {
+      setCalcLoading(false)
+    }
+  }, [])
+
+  /** 发起支付。 */
   const handlePay = useCallback(async () => {
-    if (!selectedAmount || !selectedMethod) return
-    setLoading(true)
+    if (!effectiveAmount || !selectedMethod) return
+
+    // 最小金额校验
+    if (info.min_topup && effectiveAmount < info.min_topup) {
+      setError(`最低充值金额为 ¥${info.min_topup}`)
+      return
+    }
+
+    setPayLoading(true)
     setError(null)
     try {
-      const result = await createPay(token, selectedAmount, selectedMethod.type)
-      // 新窗口打开支付链接
+      const result = await createPay(effectiveAmount, selectedMethod)
       window.open(result.paymentUrl, '_blank', 'noopener,noreferrer')
       onSuccess()
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '支付失败，请重试')
     } finally {
-      setLoading(false)
+      setPayLoading(false)
     }
-  }, [selectedAmount, selectedMethod, token, onSuccess])
+  }, [effectiveAmount, selectedMethod, info.min_topup, onSuccess])
+
+  // --- 在线充值未启用 ---
+  if (!info.enable_online_topup) {
+    return (
+      <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+        <h2 className="text-lg font-semibold text-gray-900 mb-6">账户充值</h2>
+        <div className="flex flex-col items-center justify-center py-10 text-center">
+          <AlertCircle className="h-10 w-10 text-amber-400 mb-3" />
+          <p className="text-sm font-medium text-gray-700">在线充值暂未开放</p>
+          <p className="mt-1 text-xs text-gray-400">如有需要请联系客服</p>
+        </div>
+      </div>
+    )
+  }
+
+  // --- 折扣提示 ---
+  const discountMap = info.discount
+  const hasDiscount = discountMap !== null && typeof discountMap === 'object' && Object.keys(discountMap).length > 0
+  // 取第一个可用的折扣率用于展示（若按支付方式区分则显示范围）
+  const discountValues = hasDiscount ? Object.values(discountMap!).filter((v) => typeof v === 'number' && v > 0 && v < 1) : []
+  const showDiscountRate = discountValues.length > 0 ? Math.round((1 - discountValues[0]) * 100) : null
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
       <h2 className="text-lg font-semibold text-gray-900 mb-6">账户充值</h2>
 
+      {/* 错误提示 */}
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
+        </div>
+      )}
+
+      {/* 折扣横幅 */}
+      {hasDiscount && (
+        <div className="mb-6 flex items-center gap-2 rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm">
+          <Tag className="h-4 w-4 text-brand-600 shrink-0" />
+          <span className="text-brand-700">
+            {showDiscountRate !== null
+              ? `当前享受 ${showDiscountRate}% 充值优惠`
+              : '当前有充值优惠活动'}
+          </span>
         </div>
       )}
 
@@ -133,7 +219,7 @@ function TopUpPanel({
               type="button"
               onClick={() => handleAmountSelect(amount)}
               className={`rounded-lg border px-4 py-3 text-sm font-semibold transition-all ${
-                selectedAmount === amount
+                selectedAmount === amount && !customAmount
                   ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm'
                   : 'border-gray-200 text-gray-700 hover:border-brand-300 hover:bg-brand-50/50'
               }`}
@@ -142,42 +228,74 @@ function TopUpPanel({
             </button>
           ))}
         </div>
-        {calcMoney && selectedAmount && (
-          <p className="mt-3 text-sm text-gray-500">
-            实付金额：<span className="font-semibold text-gray-900">¥{calcMoney}</span>
-          </p>
-        )}
+
+        {/* 自定义金额 */}
+        <div className="mt-3">
+          <div className="relative">
+            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">¥</span>
+            <input
+              type="number"
+              min={info.min_topup || 1}
+              value={customAmount}
+              onChange={(e) => handleCustomAmountChange(e.target.value)}
+              placeholder={`自定义金额${info.min_topup ? `（最低 ¥${info.min_topup}）` : ''}`}
+              className="w-full rounded-lg border border-gray-200 py-2.5 pl-8 pr-4 text-sm placeholder:text-gray-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            />
+          </div>
+        </div>
+
+        {/* 实付金额 */}
+        <div className="mt-3 min-h-[20px]">
+          {calcLoading ? (
+            <span className="inline-flex items-center gap-1 text-sm text-gray-400">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              计算中...
+            </span>
+          ) : calcMoney && effectiveAmount ? (
+            <p className="text-sm text-gray-500">
+              实付金额：
+              <span className="font-semibold text-gray-900">¥{calcMoney}</span>
+              {hasDiscount && Number(calcMoney) < effectiveAmount && (
+                <span className="ml-1 text-xs text-brand-600">
+                  （省 ¥{(effectiveAmount - Number(calcMoney)).toFixed(2)}）
+                </span>
+              )}
+            </p>
+          ) : null}
+        </div>
       </div>
 
       {/* 支付方式选择 */}
-      <div className="mb-6">
-        <p className="text-sm font-medium text-gray-700 mb-3">选择支付方式</p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {info.pay_methods.map((method) => (
-            <button
-              key={method.type}
-              type="button"
-              onClick={() => setSelectedMethod(method)}
-              className={`rounded-lg border px-4 py-3 text-sm font-medium transition-all ${
-                selectedMethod?.type === method.type
-                  ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm'
-                  : 'border-gray-200 text-gray-600 hover:border-brand-300 hover:bg-brand-50/50'
-              }`}
-            >
-              {method.name}
-            </button>
-          ))}
+      {info.pay_methods.length > 0 && (
+        <div className="mb-6">
+          <p className="text-sm font-medium text-gray-700 mb-3">选择支付方式</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {info.pay_methods.map((method) => (
+              <button
+                key={method}
+                type="button"
+                onClick={() => setSelectedMethod(method)}
+                className={`rounded-lg border px-4 py-3 text-sm font-medium transition-all ${
+                  selectedMethod === method
+                    ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm'
+                    : 'border-gray-200 text-gray-600 hover:border-brand-300 hover:bg-brand-50/50'
+                }`}
+              >
+                {payLabel(method)}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 充值按钮 */}
       <button
         type="button"
-        disabled={!selectedAmount || !selectedMethod || loading}
+        disabled={!effectiveAmount || !selectedMethod || payLoading || effectiveAmount <= 0}
         onClick={handlePay}
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-200 transition-all hover:bg-brand-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {loading ? (
+        {payLoading ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
             处理中...
@@ -195,10 +313,8 @@ function TopUpPanel({
 
 /** 充值记录表格 */
 function TopUpHistory({
-  token,
   refreshKey,
 }: {
-  token: string
   refreshKey: number
 }) {
   const [items, setItems] = useState<TopUpItem[]>([])
@@ -209,14 +325,14 @@ function TopUpHistory({
 
   useEffect(() => {
     setLoading(true)
-    getTopUpHistory(token, page, pageSize)
+    getTopUpHistory(page, pageSize)
       .then((data) => {
         setItems(data.items)
         setTotal(data.total)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [token, page, refreshKey])
+  }, [page, refreshKey])
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
@@ -288,18 +404,16 @@ function TopUpHistory({
                 {items.map((item) => (
                   <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50/50">
                     <td className="py-3 pr-4 font-mono text-xs text-gray-600">
-                      {(item.trade_no || '').slice(-12)}
+                      {(item.trade_no || '').slice(-12) || '-'}
                     </td>
                     <td className="py-3 pr-4 font-medium">¥{item.amount}</td>
                     <td className="py-3 pr-4 text-gray-600">¥{(Number(item.money) || 0).toFixed(4)}</td>
                     <td className="py-3 pr-4 text-gray-600">
-                      {item.payment_method}
+                      {payLabel(item.payment_provider) || payLabel(item.payment_method)}
                     </td>
                     <td className="py-3 pr-4">{statusBadge(item.status)}</td>
                     <td className="py-3 pr-4 text-gray-400 text-xs">
-                      {item.create_time > 0
-                        ? new Date(item.create_time * 1000).toLocaleString()
-                        : '-'}
+                      {item.create_time || '-'}
                     </td>
                   </tr>
                 ))}
@@ -342,7 +456,7 @@ function TopUpHistory({
 /* ------------------------------------------------------------------ */
 
 function WalletPage() {
-  const { token, isAuthenticated } = useAuth()
+  const { isAuthenticated } = useAuth()
   const [info, setInfo] = useState<TopUpInfo | null>(null)
   const [wallet, setWallet] = useState<WalletInfo | null>(null)
   const [loading, setLoading] = useState(true)
@@ -350,13 +464,13 @@ function WalletPage() {
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
-    if (!token) {
+    if (!isAuthenticated) {
       setLoading(false)
       return
     }
     setLoading(true)
     setError(null)
-    Promise.all([getTopUpInfo(token), getWallet(token)])
+    Promise.all([getTopUpInfo(), getWallet()])
       .then(([infoData, walletData]) => {
         setInfo(infoData)
         setWallet(walletData)
@@ -365,9 +479,9 @@ function WalletPage() {
         setError(e instanceof Error ? e.message : '加载失败')
       })
       .finally(() => setLoading(false))
-  }, [token, refreshKey])
+  }, [isAuthenticated, refreshKey])
 
-  if (!isAuthenticated || !token) {
+  if (!isAuthenticated) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="text-center">
@@ -423,7 +537,7 @@ function WalletPage() {
           {/* 左侧：余额卡片 + 充值记录 */}
           <div className="space-y-8 lg:col-span-3">
             <BalanceCard wallet={wallet} loading={false} />
-            <TopUpHistory token={token} refreshKey={refreshKey} />
+            <TopUpHistory refreshKey={refreshKey} />
           </div>
 
           {/* 右侧：充值面板 */}
@@ -431,7 +545,6 @@ function WalletPage() {
             {info ? (
               <TopUpPanel
                 info={info}
-                token={token}
                 onSuccess={() => setRefreshKey((k) => k + 1)}
               />
             ) : (

@@ -10,6 +10,7 @@ import {
   type TopUpInfo,
   type WalletInfo,
   type TopUpItem,
+  type PayMethod,
 } from '@/api/wallet'
 import { Loader2, Wallet, History, ExternalLink, TrendingUp, Clock, CheckCircle2, XCircle, AlertCircle, Tag } from 'lucide-react'
 
@@ -18,27 +19,33 @@ export const Route = createFileRoute('/wallet')({
 })
 
 /* ------------------------------------------------------------------ */
-/*  常量                                                               */
+/*  工具函数                                                           */
 /* ------------------------------------------------------------------ */
 
-/** 支付方式中文名称映射。 */
-const PAY_METHOD_LABELS: Record<string, string> = {
-  alipay: '支付宝',
-  wxpay: '微信支付',
-  online: '在线支付',
+/** 支付方式 provider 名称 → 中文（用于历史记录列的 fallback）。 */
+const PROVIDER_LABELS: Record<string, string> = {
+  epay: '易支付',
   stripe: 'Stripe',
   creem: 'Creem',
   waffo: 'Waffo',
   waffo_pancake: 'Waffo Pancake',
+  alipay: '支付宝',
+  wxpay: '微信支付',
+  online: '在线支付',
 }
 
-/** 支付方式 / provider -> 显示名称。 */
-function payLabel(raw: string): string {
-  return PAY_METHOD_LABELS[raw] || raw
+function providerLabel(raw: string): string {
+  return PROVIDER_LABELS[raw] || raw
+}
+
+/** unix 秒 → 本地日期字符串。 */
+function fmtTime(epochSeconds: number): string {
+  if (!epochSeconds) return '-'
+  return new Date(epochSeconds * 1000).toLocaleDateString()
 }
 
 /* ------------------------------------------------------------------ */
-/*  子组件                                                            */
+/*  子组件                                                             */
 /* ------------------------------------------------------------------ */
 
 /** 余额卡片 */
@@ -64,7 +71,7 @@ function BalanceCard({ wallet, loading }: { wallet: WalletInfo | null; loading: 
           <div>
             <p className="text-sm text-gray-500 mb-1">当前余额</p>
             <p className="text-3xl font-bold text-gray-900">
-              ¥{(Number(wallet.balance) || 0).toFixed(4)}
+              ¥{(Number(wallet.balance) || 0).toFixed(2)}
             </p>
           </div>
           <div>
@@ -75,7 +82,7 @@ function BalanceCard({ wallet, loading }: { wallet: WalletInfo | null; loading: 
               </span>
             </p>
             <p className="text-3xl font-bold text-gray-400">
-              ¥{(Number(wallet.historical_consumption) || 0).toFixed(4)}
+              ¥{(Number(wallet.historical_consumption) || 0).toFixed(2)}
             </p>
           </div>
         </div>
@@ -87,33 +94,36 @@ function BalanceCard({ wallet, loading }: { wallet: WalletInfo | null; loading: 
 }
 
 /** 充值面板 */
-function TopUpPanel({
-  info,
-  onSuccess,
-}: {
-  info: TopUpInfo
-  onSuccess: () => void
-}) {
+function TopUpPanel({ info, onSuccess }: { info: TopUpInfo; onSuccess: () => void }) {
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null)
   const [customAmount, setCustomAmount] = useState('')
-  const [selectedMethod, setSelectedMethod] = useState<string | null>(null)
+  const [selectedMethod, setSelectedMethod] = useState<string>('')
   const [calcMoney, setCalcMoney] = useState<string | null>(null)
   const [calcLoading, setCalcLoading] = useState(false)
   const [payLoading, setPayLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  /** 有效充值金额：优先自定义，否则预设。 */
-  const effectiveAmount = customAmount ? Number(customAmount) : selectedAmount
+  // 自动选中第一个支付方式
+  useEffect(() => {
+    if (info.pay_methods.length > 0 && !selectedMethod) {
+      setSelectedMethod(info.pay_methods[0].type)
+    }
+  }, [info.pay_methods, selectedMethod])
 
-  /** 选择预设金额。 */
+  const effectiveAmount = customAmount ? Number(customAmount) : selectedAmount
+  const methods = info.pay_methods
+
+  // 折扣计算
+  const discountMap = info.discount
+  const hasDiscount = discountMap !== null && typeof discountMap === 'object' && Object.keys(discountMap).length > 0
+
   const handleAmountSelect = useCallback(async (amount: number) => {
     setSelectedAmount(amount)
     setCustomAmount('')
     setError(null)
     setCalcLoading(true)
     try {
-      const money = await calculateAmount(amount)
-      setCalcMoney(money)
+      setCalcMoney(await calculateAmount(amount))
     } catch {
       setCalcMoney(String(amount))
     } finally {
@@ -121,20 +131,15 @@ function TopUpPanel({
     }
   }, [])
 
-  /** 自定义金额变更后防抖计算实付。 */
   const handleCustomAmountChange = useCallback(async (value: string) => {
     setCustomAmount(value)
     setSelectedAmount(null)
     setError(null)
     const amt = Number(value)
-    if (!amt || amt <= 0) {
-      setCalcMoney(null)
-      return
-    }
+    if (!amt || amt <= 0) { setCalcMoney(null); return }
     setCalcLoading(true)
     try {
-      const money = await calculateAmount(amt)
-      setCalcMoney(money)
+      setCalcMoney(await calculateAmount(amt))
     } catch {
       setCalcMoney(String(amt))
     } finally {
@@ -142,16 +147,12 @@ function TopUpPanel({
     }
   }, [])
 
-  /** 发起支付。 */
   const handlePay = useCallback(async () => {
     if (!effectiveAmount || !selectedMethod) return
-
-    // 最小金额校验
-    if (info.min_topup && effectiveAmount < info.min_topup) {
+    if (info.min_topup > 0 && effectiveAmount < info.min_topup) {
       setError(`最低充值金额为 ¥${info.min_topup}`)
       return
     }
-
     setPayLoading(true)
     setError(null)
     try {
@@ -165,7 +166,7 @@ function TopUpPanel({
     }
   }, [effectiveAmount, selectedMethod, info.min_topup, onSuccess])
 
-  // --- 在线充值未启用 ---
+  // 在线充值未启用
   if (!info.enable_online_topup) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
@@ -179,33 +180,18 @@ function TopUpPanel({
     )
   }
 
-  // --- 折扣提示 ---
-  const discountMap = info.discount
-  const hasDiscount = discountMap !== null && typeof discountMap === 'object' && Object.keys(discountMap).length > 0
-  // 取第一个可用的折扣率用于展示（若按支付方式区分则显示范围）
-  const discountValues = hasDiscount ? Object.values(discountMap!).filter((v) => typeof v === 'number' && v > 0 && v < 1) : []
-  const showDiscountRate = discountValues.length > 0 ? Math.round((1 - discountValues[0]) * 100) : null
-
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
       <h2 className="text-lg font-semibold text-gray-900 mb-6">账户充值</h2>
 
-      {/* 错误提示 */}
       {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       )}
 
-      {/* 折扣横幅 */}
       {hasDiscount && (
         <div className="mb-6 flex items-center gap-2 rounded-lg border border-brand-100 bg-brand-50 px-4 py-3 text-sm">
           <Tag className="h-4 w-4 text-brand-600 shrink-0" />
-          <span className="text-brand-700">
-            {showDiscountRate !== null
-              ? `当前享受 ${showDiscountRate}% 充值优惠`
-              : '当前有充值优惠活动'}
-          </span>
+          <span className="text-brand-700">当前有充值优惠活动</span>
         </div>
       )}
 
@@ -228,8 +214,6 @@ function TopUpPanel({
             </button>
           ))}
         </div>
-
-        {/* 自定义金额 */}
         <div className="mt-3">
           <div className="relative">
             <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-400">¥</span>
@@ -238,27 +222,22 @@ function TopUpPanel({
               min={info.min_topup || 1}
               value={customAmount}
               onChange={(e) => handleCustomAmountChange(e.target.value)}
-              placeholder={`自定义金额${info.min_topup ? `（最低 ¥${info.min_topup}）` : ''}`}
+              placeholder={info.min_topup > 0 ? `自定义金额（最低 ¥${info.min_topup}）` : '自定义金额'}
               className="w-full rounded-lg border border-gray-200 py-2.5 pl-8 pr-4 text-sm placeholder:text-gray-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             />
           </div>
         </div>
-
         {/* 实付金额 */}
         <div className="mt-3 min-h-[20px]">
           {calcLoading ? (
             <span className="inline-flex items-center gap-1 text-sm text-gray-400">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              计算中...
+              <Loader2 className="h-3 w-3 animate-spin" /> 计算中...
             </span>
           ) : calcMoney && effectiveAmount ? (
             <p className="text-sm text-gray-500">
-              实付金额：
-              <span className="font-semibold text-gray-900">¥{calcMoney}</span>
-              {hasDiscount && Number(calcMoney) < effectiveAmount && (
-                <span className="ml-1 text-xs text-brand-600">
-                  （省 ¥{(effectiveAmount - Number(calcMoney)).toFixed(2)}）
-                </span>
+              实付金额：<span className="font-semibold text-gray-900">¥{calcMoney}</span>
+              {Number(calcMoney) < effectiveAmount && (
+                <span className="ml-1 text-xs text-brand-600">（省 ¥{(effectiveAmount - Number(calcMoney)).toFixed(2)}）</span>
               )}
             </p>
           ) : null}
@@ -266,29 +245,29 @@ function TopUpPanel({
       </div>
 
       {/* 支付方式选择 */}
-      {info.pay_methods.length > 0 && (
+      {methods.length > 0 && (
         <div className="mb-6">
           <p className="text-sm font-medium text-gray-700 mb-3">选择支付方式</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {info.pay_methods.map((method) => (
+            {methods.map((m: PayMethod) => (
               <button
-                key={method}
+                key={m.type}
                 type="button"
-                onClick={() => setSelectedMethod(method)}
+                onClick={() => setSelectedMethod(m.type)}
                 className={`rounded-lg border px-4 py-3 text-sm font-medium transition-all ${
-                  selectedMethod === method
+                  selectedMethod === m.type
                     ? 'border-brand-500 bg-brand-50 text-brand-700 shadow-sm'
                     : 'border-gray-200 text-gray-600 hover:border-brand-300 hover:bg-brand-50/50'
                 }`}
               >
-                {payLabel(method)}
+                {m.name}
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {/* 充值按钮 */}
+      {/* 支付按钮 */}
       <button
         type="button"
         disabled={!effectiveAmount || !selectedMethod || payLoading || effectiveAmount <= 0}
@@ -296,15 +275,9 @@ function TopUpPanel({
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 py-3 text-sm font-semibold text-white shadow-lg shadow-brand-200 transition-all hover:bg-brand-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {payLoading ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            处理中...
-          </>
+          <><Loader2 className="h-4 w-4 animate-spin" /> 处理中...</>
         ) : (
-          <>
-            <ExternalLink className="h-4 w-4" />
-            前往支付
-          </>
+          <><ExternalLink className="h-4 w-4" /> 前往支付</>
         )}
       </button>
     </div>
@@ -312,11 +285,7 @@ function TopUpPanel({
 }
 
 /** 充值记录表格 */
-function TopUpHistory({
-  refreshKey,
-}: {
-  refreshKey: number
-}) {
+function TopUpHistory({ refreshKey }: { refreshKey: number }) {
   const [items, setItems] = useState<TopUpItem[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -326,10 +295,7 @@ function TopUpHistory({
   useEffect(() => {
     setLoading(true)
     getTopUpHistory(page, pageSize)
-      .then((data) => {
-        setItems(data.items)
-        setTotal(data.total)
-      })
+      .then((data) => { setItems(data.items); setTotal(data.total) })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [page, refreshKey])
@@ -339,32 +305,13 @@ function TopUpHistory({
   const statusBadge = (status: string) => {
     switch (status) {
       case 'success':
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
-            <CheckCircle2 className="h-3 w-3" />
-            成功
-          </span>
-        )
+        return <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700"><CheckCircle2 className="h-3 w-3" />成功</span>
       case 'pending':
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-yellow-50 px-2.5 py-0.5 text-xs font-medium text-yellow-700">
-            <Clock className="h-3 w-3" />
-            处理中
-          </span>
-        )
+        return <span className="inline-flex items-center gap-1 rounded-full bg-yellow-50 px-2.5 py-0.5 text-xs font-medium text-yellow-700"><Clock className="h-3 w-3" />处理中</span>
       case 'failed':
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700">
-            <XCircle className="h-3 w-3" />
-            失败
-          </span>
-        )
+        return <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700"><XCircle className="h-3 w-3" />失败</span>
       default:
-        return (
-          <span className="rounded-full bg-gray-50 px-2.5 py-0.5 text-xs text-gray-600">
-            {status}
-          </span>
-        )
+        return <span className="rounded-full bg-gray-50 px-2.5 py-0.5 text-xs text-gray-600">{status}</span>
     }
   }
 
@@ -381,9 +328,7 @@ function TopUpHistory({
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-brand-500" />
-        </div>
+        <div className="flex items-center justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-brand-500" /></div>
       ) : items.length === 0 ? (
         <p className="py-12 text-center text-sm text-gray-400">暂无充值记录</p>
       ) : (
@@ -403,46 +348,24 @@ function TopUpHistory({
               <tbody>
                 {items.map((item) => (
                   <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                    <td className="py-3 pr-4 font-mono text-xs text-gray-600">
-                      {(item.trade_no || '').slice(-12) || '-'}
-                    </td>
+                    <td className="py-3 pr-4 font-mono text-xs text-gray-600">{(item.trade_no || '').slice(-12) || '-'}</td>
                     <td className="py-3 pr-4 font-medium">¥{item.amount}</td>
-                    <td className="py-3 pr-4 text-gray-600">¥{(Number(item.money) || 0).toFixed(4)}</td>
-                    <td className="py-3 pr-4 text-gray-600">
-                      {payLabel(item.payment_provider) || payLabel(item.payment_method)}
-                    </td>
+                    <td className="py-3 pr-4 text-gray-600">¥{(Number(item.money) || 0).toFixed(2)}</td>
+                    <td className="py-3 pr-4 text-gray-600">{providerLabel(item.payment_provider) || providerLabel(item.payment_method)}</td>
                     <td className="py-3 pr-4">{statusBadge(item.status)}</td>
-                    <td className="py-3 pr-4 text-gray-400 text-xs">
-                      {item.create_time || '-'}
-                    </td>
+                    <td className="py-3 pr-4 text-gray-400 text-xs">{fmtTime(item.create_time)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-
-          {/* 分页 */}
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-center gap-2">
-              <button
-                type="button"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40"
-              >
-                上一页
-              </button>
-              <span className="text-xs text-gray-500">
-                {page} / {totalPages}
-              </span>
-              <button
-                type="button"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40"
-              >
-                下一页
-              </button>
+              <button type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40">上一页</button>
+              <span className="text-xs text-gray-500">{page} / {totalPages}</span>
+              <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40">下一页</button>
             </div>
           )}
         </>
@@ -464,40 +387,29 @@ function WalletPage() {
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      setLoading(false)
-      return
-    }
+    if (!isAuthenticated) { setLoading(false); return }
     setLoading(true)
     setError(null)
     Promise.all([getTopUpInfo(), getWallet()])
-      .then(([infoData, walletData]) => {
-        setInfo(infoData)
-        setWallet(walletData)
-      })
-      .catch((e: unknown) => {
-        setError(e instanceof Error ? e.message : '加载失败')
-      })
+      .then(([infoData, walletData]) => { setInfo(infoData); setWallet(walletData) })
+      .catch((e: unknown) => setError(e instanceof Error ? e.message : '加载失败'))
       .finally(() => setLoading(false))
   }, [isAuthenticated, refreshKey])
 
+  // 未登录
   if (!isAuthenticated) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="text-center">
           <Wallet className="mx-auto h-12 w-12 text-gray-300 mb-4" />
           <p className="text-gray-500 mb-4">请先登录后查看钱包</p>
-          <a
-            href="/login"
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition-colors"
-          >
-            前往登录
-          </a>
+          <a href="/login" className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition-colors">前往登录</a>
         </div>
       </div>
     )
   }
 
+  // 加载中
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -506,18 +418,13 @@ function WalletPage() {
     )
   }
 
+  // 错误
   if (error) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="text-center">
           <p className="text-red-500 mb-4">{error}</p>
-          <button
-            type="button"
-            onClick={() => setRefreshKey((k) => k + 1)}
-            className="text-brand-600 text-sm hover:underline"
-          >
-            点击重试
-          </button>
+          <button type="button" onClick={() => setRefreshKey((k) => k + 1)} className="text-brand-600 text-sm hover:underline">点击重试</button>
         </div>
       </div>
     )
@@ -526,27 +433,18 @@ function WalletPage() {
   return (
     <section className="bg-gray-50/50">
       <div className="mx-auto max-w-6xl px-6 py-12 sm:py-20">
-        {/* 页面标题 */}
         <div className="mb-10">
           <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl">钱包</h1>
           <p className="mt-2 text-gray-500">管理你的余额、充值与消费记录</p>
         </div>
-
-        {/* 两栏布局 */}
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-5">
-          {/* 左侧：余额卡片 + 充值记录 */}
           <div className="space-y-8 lg:col-span-3">
             <BalanceCard wallet={wallet} loading={false} />
             <TopUpHistory refreshKey={refreshKey} />
           </div>
-
-          {/* 右侧：充值面板 */}
           <div className="lg:col-span-2">
             {info ? (
-              <TopUpPanel
-                info={info}
-                onSuccess={() => setRefreshKey((k) => k + 1)}
-              />
+              <TopUpPanel info={info} onSuccess={() => setRefreshKey((k) => k + 1)} />
             ) : (
               <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm flex items-center justify-center py-16">
                 <Loader2 className="h-6 w-6 animate-spin text-brand-500" />

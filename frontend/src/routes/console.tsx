@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet, useRouterState } from '@tanstack/react-router'
 import { useAuth } from '@/stores/auth'
 import { useState } from 'react'
-import { LayoutDashboard, Wallet, ScrollText, Home, LogOut } from 'lucide-react'
+import { LayoutDashboard, BarChart3, Wallet, ScrollText, Home, LogOut } from 'lucide-react'
 
 /**
  * 控制台布局路由 —— 深色侧边栏 + 内容区。
@@ -13,6 +13,7 @@ export const Route = createFileRoute('/console')({
 
 const NAV_ITEMS = [
   { to: '/console', label: '概览', icon: LayoutDashboard, exact: true },
+  { to: '/console/dashboard', label: '看板', icon: BarChart3 },
   { to: '/console/wallet', label: '钱包', icon: Wallet },
   { to: '/console/logs', label: '操作日志', icon: ScrollText },
 ] as const

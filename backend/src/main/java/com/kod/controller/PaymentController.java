@@ -92,4 +92,19 @@ public class PaymentController {
         Long userId = paymentService.parseUserIdFromHeader(authorization);
         return Result.ok(paymentService.getWallet(userId));
     }
+
+    // -------------------------------------------------------
+    // 订单查询
+    // -------------------------------------------------------
+
+    /**
+     * 查询单笔订单状态（用于前端轮询支付结果）。
+     */
+    @GetMapping("/order/{orderNo}")
+    public Result<OrderStatusResponse> getOrderStatus(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable String orderNo) {
+        Long userId = paymentService.parseUserIdFromHeader(authorization);
+        return Result.ok(paymentService.getOrderStatus(userId, orderNo));
+    }
 }

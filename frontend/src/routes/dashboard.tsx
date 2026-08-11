@@ -4,11 +4,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { BarChart3, TrendingUp, Zap, Clock, Activity, Coins } from 'lucide-react'
 import { VChart } from '@visactor/react-vchart'
 import {
-  getUserQuotaDates,
+  getQuotaData,
   type QuotaDataItem,
-  ApiError,
 } from '@/api/dashboard'
-import { getWallet, type WalletInfo } from '@/api/wallet'
+import { ApiError } from '@/api/client'
 
 export const Route = createFileRoute('/dashboard')({
   component: DashboardPage,
@@ -37,19 +36,9 @@ function fmtQuota(q: number): string {
   return '¥' + yuan.toFixed(4)
 }
 
-function fmtMoney(n: number): string {
-  if (n >= 1) return '¥' + n.toFixed(2)
-  return '¥' + n.toFixed(4)
-}
-
 function fmtHourLabel(ts: number): string {
   const d = new Date(ts * 1000)
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:00`
-}
-
-function fmtDayLabel(ts: number): string {
-  const d = new Date(ts * 1000)
-  return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
 /* ==================================================================== */
@@ -334,11 +323,10 @@ function buildTrendSpec(data: QuotaDataItem[]) {
 type ChartTab = 'trend' | 'proportion' | 'top'
 type DistChartType = 'bar' | 'area'
 
-function DashboardPage() {
+export function DashboardPage() {
   const { token } = useAuth()
 
   const [quotaData, setQuotaData] = useState<QuotaDataItem[]>([])
-  const [wallet, setWallet] = useState<WalletInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -362,12 +350,8 @@ function DashboardPage() {
     setLoading(true)
     setError(null)
     try {
-      const [data, w] = await Promise.all([
-        getUserQuotaDates(token, timeRange.start, timeRange.end),
-        getWallet(token),
-      ])
+      const data = await getQuotaData(timeRange.start, timeRange.end)
       setQuotaData(data)
-      setWallet(w)
     } catch (e) {
       if (e instanceof ApiError) {
         setError(e.code === 401 ? '请先登录' : e.message)
@@ -446,56 +430,49 @@ function DashboardPage() {
 
   if (loading) {
     return (
-      <section className="bg-gray-50/50">
-        <div className="mx-auto max-w-6xl px-6 py-12 sm:py-20">
-          <div className="mb-10">
-            <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
-            <div className="h-4 w-32 bg-gray-200 rounded mt-2 animate-pulse" />
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="rounded-xl border border-gray-100 bg-white p-4 animate-pulse">
-                <div className="h-3 w-16 bg-gray-200 rounded mb-2" />
-                <div className="h-6 w-20 bg-gray-200 rounded" />
-              </div>
-            ))}
-          </div>
-          <div className="rounded-xl border border-gray-100 bg-white p-6 animate-pulse">
-            <div className="h-5 w-32 bg-gray-200 rounded mb-4" />
-            <div className="h-64 bg-gray-100 rounded" />
-          </div>
+      <div className="animate-fade-in space-y-6 p-6">
+        <div className="mb-2">
+          <div className="h-7 w-32 bg-gray-200 rounded animate-pulse" />
+          <div className="h-4 w-24 bg-gray-200 rounded mt-2 animate-pulse" />
         </div>
-      </section>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-gray-100 bg-white p-4 animate-pulse">
+              <div className="h-3 w-16 bg-gray-200 rounded mb-2" />
+              <div className="h-6 w-20 bg-gray-200 rounded" />
+            </div>
+          ))}
+        </div>
+        <div className="rounded-xl border border-gray-100 bg-white p-6 animate-pulse">
+          <div className="h-5 w-32 bg-gray-200 rounded mb-4" />
+          <div className="h-64 bg-gray-100 rounded" />
+        </div>
+      </div>
     )
   }
 
   if (error) {
     return (
-      <section className="bg-gray-50/50">
-        <div className="mx-auto max-w-6xl px-6 py-12 sm:py-20">
-          <div className="mb-10">
-            <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl">数据看板</h1>
-          </div>
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
-            <button type="button" onClick={fetchData}
-              className="ml-3 font-medium underline hover:text-red-800">重试</button>
-          </div>
+      <div className="animate-fade-in space-y-6 p-6">
+        <h1 className="text-2xl font-bold text-gray-900">数据看板</h1>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+          <button type="button" onClick={fetchData}
+            className="ml-3 font-medium underline hover:text-red-800">重试</button>
         </div>
-      </section>
+      </div>
     )
   }
 
   return (
-    <section className="bg-gray-50/50">
-      <div className="mx-auto max-w-6xl px-6 py-12 sm:py-20">
-        {/* ---- 标题 ---- */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl">数据看板</h1>
-          <p className="mt-2 text-gray-500">模型调用分析</p>
-        </div>
+    <div className="animate-fade-in space-y-4 p-6">
+      {/* ---- 标题 ---- */}
+      <div className="mb-2">
+        <h1 className="text-2xl font-bold text-gray-900">数据看板</h1>
+        <p className="mt-1 text-sm text-gray-500">模型调用分析</p>
+      </div>
 
-        <div className="space-y-4">
+      <div className="space-y-4">
           {/* ---- 工具栏 ---- */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             {/* 时间范围 */}
@@ -554,22 +531,6 @@ function DashboardPage() {
               desc="每分钟 Token 数"
             />
           </div>
-
-          {/* ---- 钱包信息 ---- */}
-          {wallet && (
-            <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-              <div className="flex flex-wrap items-center gap-6 text-sm">
-                <div>
-                  <span className="text-gray-500">当前余额：</span>
-                  <span className="font-semibold text-gray-900 tabular-nums">{fmtMoney(wallet.balance)}</span>
-                </div>
-                <div>
-                  <span className="text-gray-500">累计消费：</span>
-                  <span className="font-semibold text-gray-900 tabular-nums">{fmtMoney(wallet.historical_consumption)}</span>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* ---- 消费分布图 ---- */}
           {quotaData.length > 0 && (
@@ -652,7 +613,6 @@ function DashboardPage() {
             </div>
           )}
         </div>
-      </div>
-    </section>
+    </div>
   )
 }

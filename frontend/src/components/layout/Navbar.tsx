@@ -2,6 +2,7 @@ import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 import { Menu, X } from 'lucide-react'
 import { useAuth } from '@/stores/auth'
+import { KOD_WEB_URL } from '@/config'
 
 const navItems = [
   { to: '/', label: '首页' },
@@ -65,11 +66,21 @@ export function Navbar() {
             )
           })}
           {isAuthenticated ? (
-            <Link to="/console" className="ml-4 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-brand-700 shadow-sm shadow-brand-600/20">
-              控制台
-            </Link>
+            <>
+              <a
+                href={KOD_WEB_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-all hover:bg-brand-700 shadow-sm shadow-brand-600/20"
+              >
+                立即使用
+              </a>
+              <Link to="/console" className="ml-1 rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 transition-all hover:border-brand-600 hover:text-brand-600">
+                控制台
+              </Link>
+            </>
           ) : (
-            <Link to="/login" search={{ redirect: '/console' }} className="ml-4 rounded-lg border border-brand-600 px-4 py-2 text-sm font-semibold text-brand-600 transition-all hover:bg-brand-50">
+            <Link to="/login" search={{ redirect: KOD_WEB_URL }} className="ml-4 rounded-lg border border-brand-600 px-4 py-2 text-sm font-semibold text-brand-600 transition-all hover:bg-brand-50">
               立即使用
             </Link>
           )}
@@ -118,12 +129,21 @@ export function Navbar() {
               <hr className="my-3" />
               {isAuthenticated ? (
                 <>
-                  <Link to="/console" className="flex items-center gap-3 rounded-xl bg-brand-600 px-4 py-3 text-base font-semibold text-white" onClick={() => setMenuOpen(false)}>控制台</Link>
+                  <a
+                    href={KOD_WEB_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-3 rounded-xl bg-brand-600 px-4 py-3 text-base font-semibold text-white"
+                    onClick={() => setMenuOpen(false)}
+                  >
+                    立即使用
+                  </a>
+                  <Link to="/console" className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setMenuOpen(false)}>控制台</Link>
                   <button onClick={() => { logout(); closeAndNav('/login') }} className="w-full rounded-xl px-4 py-3 text-base font-medium text-gray-500 hover:bg-gray-50 text-left">退出登录</button>
                 </>
               ) : (
                 <>
-                  <Link to="/login" search={{ redirect: '/console' }} className="flex items-center gap-3 rounded-xl bg-brand-600 px-4 py-3 text-base font-semibold text-white" onClick={() => setMenuOpen(false)}>立即使用</Link>
+                  <Link to="/login" search={{ redirect: KOD_WEB_URL }} className="flex items-center gap-3 rounded-xl bg-brand-600 px-4 py-3 text-base font-semibold text-white" onClick={() => setMenuOpen(false)}>立即使用</Link>
                   <Link to="/register" className="flex items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 text-base font-medium text-gray-700 hover:bg-gray-50" onClick={() => setMenuOpen(false)}>注册账号</Link>
                 </>
               )}

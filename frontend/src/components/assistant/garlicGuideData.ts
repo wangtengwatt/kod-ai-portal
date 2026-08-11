@@ -128,7 +128,7 @@ const knowledge: GuideKnowledge[] = [
   {
     keywords: ['功能', '能力', '能做什么', '核心'],
     routes: ['/features'],
-    content: '核心能力包括蒜粒期货交易、分时确定性交付、多供应商竞价，以及连接桌面端、移动端和 Web 端的 AI 智能工作台。',
+    content: '核心能力包括算力存取交易、分时确定性交付、多供应商竞价，以及连接桌面端、移动端和 Web 端的 AI 智能工作台。',
     actions: [{ label: '查看全部特性', to: '/features' }],
   },
   {

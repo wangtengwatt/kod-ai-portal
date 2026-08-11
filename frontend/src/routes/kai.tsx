@@ -178,7 +178,7 @@ function KaiPage() {
           </h1>
           <p className="mx-auto mt-6 max-w-3xl text-lg leading-relaxed text-gray-600">
             将未来指定交割小时内某个确定 AI 模型的使用权，
-            变成可采购、可比较、可转让和可履约管理的标准产品。
+            变成可采购、可比较、算容存取，算容置换，算容预订和可履约管理的标准产品。
           </p>
           {/* 一手定义卡片 */}
           <div className="mx-auto mt-10 inline-flex items-center gap-3 rounded-2xl border-2 border-brand-200 bg-white px-8 py-5 shadow-sm">

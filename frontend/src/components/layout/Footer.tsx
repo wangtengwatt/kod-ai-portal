@@ -13,7 +13,7 @@ export function Footer() {
               <span className="text-xl font-bold text-gray-900">KOD蒜粒</span>
             </Link>
             <p className="mt-4 text-sm leading-relaxed text-gray-500">
-              蒜粒期货 AI 助手 —— 基于 KAI 期算标准，让模型容量可计划、可交易、可保障。
+              蒜粒算力存取 AI 助手 —— 基于 KAI 期算标准，让模型容量可计划、可交易、可保障。
             </p>
           </div>
 

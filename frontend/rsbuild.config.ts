@@ -30,6 +30,14 @@ export default defineConfig(({ envMode }) => {
       entry: {
         index: './src/main.tsx',
       },
+      define: {
+        'import.meta.env.VITE_API_BASE_URL': JSON.stringify(serverUrl),
+        'import.meta.env.VITE_KOD_WEB_URL': JSON.stringify(
+          process.env.VITE_KOD_WEB_URL ||
+            env.parsed?.VITE_KOD_WEB_URL ||
+            ''
+        ),
+      },
     },
     resolve: {
       alias: {

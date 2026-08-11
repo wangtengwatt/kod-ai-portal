@@ -78,12 +78,12 @@ kod:
     amount-options: ${AMOUNT_OPTIONS:1,5,10,20,50,100}
     compliance-confirmed: ${PAYMENT_COMPLIANCE_CONFIRMED:true}
     compliance-terms-version: ${PAYMENT_COMPLIANCE_TERMS_VERSION:v1}
-    epay-pid: ${EPAY_PID:12456}
-    epay-key: ${EPAY_KEY:pf6QCl2MC0lc3ZKzJWrk}
+    epay-pid: ${EPAY_PID:12457}
+    epay-key: ${EPAY_KEY:nYV1gg5K9CBeITJYzrGB}
     epay-api-url: ${EPAY_API_URL:https://mzf.mapay.cc/xpay/epay/submit.php}
     epay-mapi-url: ${EPAY_MAPI_URL:https://mzf.mapay.cc/xpay/epay/mapi.php}
-    epay-notify-url: ${EPAY_NOTIFY_URL:http://localhost:8080/api/payment/epay/notify}
-    epay-return-url: ${EPAY_RETURN_URL:http://localhost:3000/wallet}
+    epay-notify-url: ${EPAY_NOTIFY_URL:https://kod.kai.com/api/payment/epay/notify}
+    epay-return-url: ${EPAY_RETURN_URL:https://kod.kai.com/wallet}
     pay-methods:
       - name: 支付宝
         type: alipay

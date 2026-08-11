@@ -71,13 +71,12 @@ function HomePage() {
           {/* 标题 */}
           <h1 className="mt-8 text-5xl font-extrabold tracking-tight text-gray-900 sm:text-6xl lg:text-7xl">
             KOD蒜粒
-            <span className="text-brand-600"> — 你的期货 AI 助手</span>
+            <span className="text-brand-600"> — 你的算力存取 AI 助手</span>
           </h1>
 
           {/* 副标题 */}
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-gray-600">
-            首个深度集成 KAI 期算标准的 AI 助手。不止于对话——
-            更是你的蒜粒期货交易、交付与管理平台，让模型容量可采购、可交付、可转让。
+            算容存取，算容置换，算容预订，算力存取，算力置换，算力预订
           </p>
 
           {/* CTA */}
@@ -107,16 +106,16 @@ function HomePage() {
               KOD蒜粒 是什么
             </h2>
             <p className="mt-4 text-lg font-semibold text-brand-600">
-              KOD蒜粒 —— 蒜粒期货 AI 助手，让模型容量可采购、可交付、可转让
+              KOD蒜粒 —— 蒜粒算力存取 AI 助手，让模型容量算力存取，算力置换，算力预订
             </p>
           </div>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-            {/* 蒜粒期货交易 */}
+            {/* 算力存取交易 */}
             <div className="group rounded-2xl bg-brand-50/50 p-8 transition-colors hover:bg-brand-50">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-white shadow-lg shadow-brand-200/50">
                 <TrendingUp className="h-7 w-7" />
               </div>
-              <h3 className="mt-6 text-xl font-bold text-gray-900">蒜粒期货交易</h3>
+              <h3 className="mt-6 text-xl font-bold text-gray-900">算力存取交易</h3>
               <p className="mt-3 text-sm leading-relaxed text-gray-600">
                 内置 KAI 期算市场，以 TPM·h 为标准合约单位。实时行情、多家竞价、
                 容量采购、持仓管理——从下单到交割，完整闭环。

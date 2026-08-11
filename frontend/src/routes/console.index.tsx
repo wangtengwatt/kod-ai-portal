@@ -1,9 +1,11 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { createFileRoute, redirect, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth, authStore } from '@/stores/auth'
-import { getDashboardSummary, getDashboardHourly } from '@/api/dashboard'
+import { getDashboardSummary } from '@/api/dashboard'
 import { getWallet } from '@/api/wallet'
-import { Coins, Activity, Key, Zap, Plus, ScrollText } from 'lucide-react'
+import { getSessionBalance } from '@/api/session'
+import { Coins, Activity, Plug, BarChart3, Wallet, ScrollText, ArrowRight, MessageCircle } from 'lucide-react'
+import { KOD_WEB_URL } from '@/config'
 
 export const Route = createFileRoute('/console/')({
   beforeLoad: ({ location }) => {
@@ -38,22 +40,60 @@ function ConsoleDashboard() {
     staleTime: 30_000,
   })
 
-  const hourlyQuery = useQuery({
-    queryKey: ['dashboard', 'hourly', 24],
-    queryFn: () => getDashboardHourly(24),
-    staleTime: 30_000,
+  const sessionQuery = useQuery({
+    queryKey: ['session-balance'],
+    queryFn: getSessionBalance,
+    staleTime: 15_000,
   })
 
   const isLoading = summaryQuery.isLoading || walletQuery.isLoading
-  const isError = summaryQuery.isError || walletQuery.isError
-
   const totalRequests = summaryQuery.data?.reduce((s, m) => s + m.totalRequests, 0) ?? 0
-  const totalTokens = summaryQuery.data?.reduce((s, m) => s + m.totalTokens, 0) ?? 0
-  const totalQuota = summaryQuery.data?.reduce((s, m) => s + m.totalQuota, 0) ?? 0
   const modelCount = summaryQuery.data?.length ?? 0
   const balance = walletQuery.data?.balance ?? 0
+  const isConnected = sessionQuery.data?.connect ?? false
 
-  const hourlyNonZero = (hourlyQuery.data ?? []).filter((h) => h.requestCount > 0)
+  type NavCard = {
+    to: string
+    icon: typeof MessageCircle
+    title: string
+    desc: string
+    color: string
+    highlight?: boolean
+    external?: boolean
+  }
+
+  const navCards: NavCard[] = [
+    {
+      to: KOD_WEB_URL,
+      external: true,
+      icon: MessageCircle,
+      title: 'KOD 蒜宝',
+      desc: '多模型 AI 对话助手 — 即刻开始与 GPT、Claude、DeepSeek 等模型对话',
+      color: 'bg-brand-50 text-brand-600',
+      highlight: true,
+    },
+    {
+      to: '/console/dashboard',
+      icon: BarChart3,
+      title: '数据看板',
+      desc: '配额消耗、调用趋势、模型排行 — 多维度可视化分析',
+      color: 'bg-blue-50 text-blue-600',
+    },
+    {
+      to: '/console/wallet',
+      icon: Wallet,
+      title: '钱包充值',
+      desc: '余额管理、在线充值、交易记录查询',
+      color: 'bg-green-50 text-green-600',
+    },
+    {
+      to: '/console/logs',
+      icon: ScrollText,
+      title: '操作日志',
+      desc: 'API 用量明细、日志同步状态、历史记录',
+      color: 'bg-purple-50 text-purple-600',
+    },
+  ]
 
   return (
     <div className="animate-fade-in space-y-6 p-6">
@@ -63,88 +103,96 @@ function ConsoleDashboard() {
         <p className="mt-1 text-sm text-gray-500">以下是你的账户概览</p>
       </div>
 
-      {/* Error */}
-      {isError && (
-        <div className="rounded-xl border border-red-200 bg-red-50/90 px-4 py-3 text-sm text-red-700">
-          加载失败：{summaryQuery.error instanceof Error ? summaryQuery.error.message : walletQuery.error instanceof Error ? walletQuery.error.message : '未知错误'}
-          <button type="button" onClick={() => { summaryQuery.refetch(); walletQuery.refetch() }}
-            className="ml-3 underline underline-offset-2 hover:text-red-800">重试</button>
-        </div>
-      )}
-
-      {/* Stats grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="账户余额" value={isLoading ? '...' : `¥${balance.toFixed(2)}`} icon={Coins} sub="活跃模型" subValue={`${modelCount} 个`} />
-        <StatCard title="累计调用" value={isLoading ? '...' : totalRequests.toLocaleString()} icon={Activity} sub="次请求" />
-        <StatCard title="累计配额" value={isLoading ? '...' : totalQuota.toLocaleString()} icon={Key} sub="消耗" />
-        <StatCard title="累计 Token" value={isLoading ? '...' : totalTokens >= 1_000_000 ? (totalTokens / 1_000_000).toFixed(1) + 'M' : totalTokens.toLocaleString()} icon={Zap} sub="总计" />
-      </div>
-
-      {/* Quick actions */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">快捷操作</h2>
-        <div className="flex flex-wrap gap-3">
-          <a href="/console/wallet" className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-brand-700 active:scale-[0.98]">
-            <Plus className="h-4 w-4" />充值
-          </a>
-          <a href="/console/logs" className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition-all hover:bg-gray-50 active:scale-[0.98]">
-            <ScrollText className="h-4 w-4" />查看日志
-          </a>
-        </div>
-      </div>
-
-      {/* Recent hourly usage */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">最近 24 小时用量</h2>
-          <a href="/console/logs" className="text-sm font-medium text-brand-600 hover:text-brand-700">查看全部 →</a>
-        </div>
-        {hourlyQuery.isLoading ? (
-          <div className="space-y-3">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 rounded-lg border border-gray-50 px-4 py-3 animate-pulse">
-                <div className="h-9 w-9 rounded-lg bg-gray-100" />
-                <div className="flex-1 space-y-2"><div className="h-4 w-32 rounded bg-gray-100" /><div className="h-3 w-20 rounded bg-gray-50" /></div>
-                <div className="h-3 w-16 rounded bg-gray-50" />
-              </div>
-            ))}
+      {/* 3 关键指标卡 — 与看板互补，不重复 */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-500">可用余额</span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-600">
+              <Coins className="h-5 w-5" />
+            </div>
           </div>
-        ) : hourlyNonZero.length > 0 ? (
-          <div className="space-y-3">
-            {hourlyNonZero.slice().reverse().slice(0, 10).map((h) => (
-              <div key={h.hourBucket} className="flex items-center gap-4 rounded-lg border border-gray-50 px-4 py-3 transition-colors hover:bg-gray-50">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-green-100 text-green-600">
-                  <Activity className="h-5 w-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">API 调用<span className="ml-1 font-normal text-gray-500">· {h.requestCount} 次请求</span></p>
-                  <p className="text-xs text-gray-500">{h.tokenUsed.toLocaleString()} tokens · {h.quota.toFixed(2)} 配额</p>
-                </div>
-                <span className="shrink-0 text-xs text-gray-400">{h.hourBucket}</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="py-8 text-center text-sm text-gray-400">暂无用量数据</p>
-        )}
-      </div>
-    </div>
-  )
-}
+          <p className="mt-2 text-2xl font-bold text-gray-900 tabular-nums">
+            {isLoading ? '...' : `¥${balance.toFixed(2)}`}
+          </p>
+          <p className="mt-1 text-xs text-gray-400">余额可用于 API 调用消费</p>
+        </div>
 
-function StatCard({ title, value, icon: Icon, sub, subValue }: {
-  title: string; value: string; icon: React.FC<{ className?: string }>; sub: string; subValue?: string
-}) {
-  return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-shadow hover:shadow-md">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="text-sm text-gray-500">{title}</span>
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
-          <Icon className="h-5 w-5" />
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-500">累计调用</span>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+              <Activity className="h-5 w-5" />
+            </div>
+          </div>
+          <p className="mt-2 text-2xl font-bold text-gray-900 tabular-nums">
+            {isLoading ? '...' : totalRequests.toLocaleString()}
+          </p>
+          <p className="mt-1 text-xs text-gray-400">覆盖 {modelCount} 个模型</p>
+        </div>
+
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-500">连接状态</span>
+            <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${isConnected ? 'bg-brand-50 text-brand-600' : 'bg-gray-100 text-gray-400'}`}>
+              <Plug className="h-5 w-5" />
+            </div>
+          </div>
+          <p className={`mt-2 text-2xl font-bold tabular-nums ${isConnected ? 'text-brand-600' : 'text-gray-400'}`}>
+            {sessionQuery.isLoading ? '...' : isConnected ? '已连接' : '未连接'}
+          </p>
+          <p className="mt-1 text-xs text-gray-400">
+            {isConnected ? 'API Key 正常工作' : '请选择 API Key 开始使用'}
+          </p>
         </div>
       </div>
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
-      <p className="mt-1 text-xs text-gray-500">{sub}{subValue ? ` ${subValue}` : ''}</p>
+
+      {/* 快捷导航卡片 */}
+      <div>
+        <h2 className="mb-4 text-lg font-semibold text-gray-900">快捷入口</h2>
+        <div className="grid gap-4 sm:grid-cols-3">
+          {navCards.map((card) => {
+            const Icon = card.icon
+            const cardContent = (
+              <>
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${card.highlight ? 'bg-brand-600 text-white shadow-sm shadow-brand-600/30' : card.color}`}>
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-gray-900 group-hover:text-brand-600 transition-colors">
+                    {card.title}
+                  </h3>
+                  <p className="mt-1 text-xs text-gray-500 line-clamp-2">{card.desc}</p>
+                </div>
+                <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-gray-300 group-hover:text-brand-500 transition-colors" />
+              </>
+            )
+
+            if (card.external) {
+              return (
+                <a
+                  key={card.to}
+                  href={card.to}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-start gap-4 rounded-2xl border border-brand-200 bg-brand-50/40 p-5 shadow-sm transition-all hover:shadow-md hover:border-brand-300"
+                >
+                  {cardContent}
+                </a>
+              )
+            }
+            return (
+              <Link
+                key={card.to}
+                to={card.to}
+                className="group flex items-start gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:shadow-md hover:border-gray-200"
+              >
+                {cardContent}
+              </Link>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }

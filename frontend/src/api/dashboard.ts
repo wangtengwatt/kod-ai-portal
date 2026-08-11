@@ -36,7 +36,7 @@ export interface QuotaDataItem {
   user_id: number
   username: string
   model_name: string
-  created_at: string
+  created_at: number
   token_used: number
   count: number
   quota: number

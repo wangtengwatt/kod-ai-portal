@@ -136,7 +136,7 @@ function FeaturesPage() {
         <div className="text-center">
           <h1 className="text-4xl font-bold text-gray-900 sm:text-5xl">KOD蒜粒 功能体系</h1>
           <p className="mt-4 text-gray-600">
-            以 KAI 期算市场能力为核心，整合 AI 对话、工具链与跨平台体验，打造完整的蒜粒期货 AI 工作台。
+            以 KAI 期算市场能力为核心，整合 AI 对话、工具链与跨平台体验，打造完整的蒜粒算力存取 AI 工作台。
           </p>
         </div>
 

@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>蒜宝桌面宠物 - 碰边探头</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #f0f0f3;
+    color: #333;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+  h1 { font-size: 20px; font-weight: 500; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #888; margin-bottom: 20px; }
+
+  /* 手机框：overflow:hidden 是关键，溢出的蒜宝身体会被自然裁掉 */
+  .phone-frame {
+    width: 360px;
+    height: 640px;
+    border-radius: 32px;
+    border: 8px solid #2c2c2a;
+    background: linear-gradient(180deg, #f5f5f7 0%, #e8e8ed 100%);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    touch-action: none;
+  }
+  .status-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #666;
+    background: rgba(255,255,255,0.95);
+    border-bottom: 1px solid #eee;
+    z-index: 100;
+    user-select: none;
+  }
+  .state-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 8px;
+    transition: all 0.3s;
+  }
+
+  /* 蒜宝容器：可以溢出屏幕，位置用 left/top 控制 */
+  .suanbao-root {
+    position: absolute;
+    width: 80px;
+    height: 96px;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    will-change: left, top, transform;
+    z-index: 50;
+    transition: left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                top 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .suanbao-root:active { cursor: grabbing; }
+  .suanbao-root.dragging { transition: none; }
+  /* 探头时移除位置过渡，让弹入墙体是即时的，弹出用动画 */
+  .suanbao-root.edge {
+    transition: left 0.25s ease-out, top 0.25s ease-out;
+  }
+  .suanbao-root.dragging.edge { transition: none; }
+
+  .suanbao-mascot {
+    position: relative;
+    width: 64px;
+    height: 76px;
+    margin: 0 auto;
+    transform-origin: 50% 100%;
+    filter: drop-shadow(0 6px 10px rgba(46, 62, 38, 0.22));
+    will-change: transform, filter;
+    animation: suanbao-float 2.6s ease-in-out infinite;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s;
+  }
+  .suanbao-root.edge .suanbao-mascot { animation: none; }
+
+  .suanbao-mascot img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  .suanbao-name {
+    font-size: 10px;
+    font-weight: 700;
+    color: #555;
+    background: #fff;
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid #ddd;
+    margin: 2px auto 0;
+    width: fit-content;
+    white-space: nowrap;
+    transition: opacity 0.2s;
+  }
+
+  .thinking-dots {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 4px;
+    z-index: 3;
+  }
+  .thinking-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #6f5ee7;
+    opacity: 0.8;
+    animation: thinking-bounce 1.2s ease-in-out infinite;
+  }
+  .thinking-dot:nth-child(1) { animation-delay: 0s; }
+  .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+  .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+
+  .state-thinking { filter: drop-shadow(0 6px 10px rgba(46,62,38,0.2)) drop-shadow(0 0 6px rgba(111,94,231,0.65)); }
+  .state-success  { filter: drop-shadow(0 6px 10px rgba(46,62,38,0.2)) drop-shadow(0 0 6px rgba(72,177,104,0.7)); }
+  .state-sad      { filter: drop-shadow(0 6px 10px rgba(46,62,38,0.2)) drop-shadow(0 0 6px rgba(96,165,250,0.65)); animation: suanbao-sad 3s ease-in-out infinite; }
+
+  /* 探头动画：身体藏墙后，头部周期性探出-缩回-左右歪头，俏皮偷看 */
+  @keyframes peek-look {
+    0%   { transform: translateY(10px) rotate(-6deg) scale(1); }
+    12%  { transform: translateY(-3px) rotate(0deg) scale(1.06); }
+    25%  { transform: translateY(-1px) rotate(7deg) scale(1.04); }
+    40%  { transform: translateY(-5px) rotate(0deg) scale(1.07); }
+    55%  { transform: translateY(4px) rotate(-5deg) scale(1); }
+    70%  { transform: translateY(-2px) rotate(5deg) scale(1.05); }
+    85%  { transform: translateY(2px) rotate(-2deg) scale(1.02); }
+    100% { transform: translateY(10px) rotate(-6deg) scale(1); }
+  }
+  .peeking-anim { animation: peek-look 2.8s ease-in-out infinite !important; }
+
+  /* 收起：缩一下躲进去 */
+  @keyframes hide-shrink {
+    0%   { transform: scale(1) rotate(0deg); }
+    100% { transform: scale(0.82) rotate(3deg); }
+  }
+  .hiding-anim { animation: hide-shrink 0.28s ease-out forwards !important; }
+
+  @keyframes suanbao-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+  @keyframes suanbao-sad {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(3px) rotate(-2deg); }
+  }
+  @keyframes thinking-bounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+    40% { transform: translateY(-4px); opacity: 1; }
+  }
+
+  /* ===== 1. 触摸反馈 ===== */
+  /* 戳一下：左右晃 */
+  @keyframes poke-shake {
+    0%   { transform: rotate(0deg) scale(1); }
+    20%  { transform: rotate(-12deg) scale(1.08); }
+    40%  { transform: rotate(10deg) scale(1.06); }
+    60%  { transform: rotate(-7deg) scale(1.04); }
+    80%  { transform: rotate(4deg) scale(1.02); }
+    100% { transform: rotate(0deg) scale(1); }
+  }
+  .poke-anim { animation: poke-shake 0.5s ease-out !important; }
+
+  /* 长按：缩成球 */
+  @keyframes longpress-ball {
+    0%   { transform: scale(1, 1); }
+    100% { transform: scale(0.7, 0.55); }
+  }
+  .longpress-anim { animation: longpress-ball 0.4s ease-out forwards !important; }
+
+  /* 拖拽弹性：拖拽时蒜宝微微拉伸 */
+  .suanbao-root.dragging .suanbao-mascot {
+    animation: none !important;
+    transition: transform 0.15s ease-out;
+  }
+
+  /* ===== 2. 待机微动画 ===== */
+  /* 眨眼层 */
+  .blink-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 2;
+  }
+  .blink-overlay.blinking {
+    animation: blink-show 0.15s ease-in-out;
+  }
+  @keyframes blink-show {
+    0%   { opacity: 0; }
+    50%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* 偶尔歪头：在浮动基础上叠加旋转 */
+  @keyframes idle-tilt {
+    0%, 85%, 100% { transform: rotate(0deg); }
+    88%           { transform: rotate(8deg); }
+    91%           { transform: rotate(-6deg); }
+    94%           { transform: rotate(4deg); }
+    97%           { transform: rotate(0deg); }
+  }
+  .idle-micro { animation: suanbao-float 2.6s ease-in-out infinite, idle-tilt 7s ease-in-out infinite; }
+
+  /* ===== 3. 对话气泡 ===== */
+  .speech-bubble {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-4px);
+    background: #fff;
+    border: 1.5px solid #97C459;
+    border-radius: 14px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #3B6D11;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 60;
+    transition: opacity 0.25s, transform 0.25s;
+  }
+  .speech-bubble.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(-8px);
+  }
+  .speech-bubble::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #97C459;
+  }
+  .speech-bubble.thinking { border-color: #6f5ee7; color: #534AB7; }
+  .speech-bubble.thinking::after { border-top-color: #6f5ee7; }
+  .speech-bubble.success { border-color: #48b168; color: #0F6E56; }
+  .speech-bubble.success::after { border-top-color: #48b168; }
+  .speech-bubble.sad { border-color: #60a5fa; color: #0C447C; }
+  .speech-bubble.sad::after { border-top-color: #60a5fa; }
+
+  /* ===== 4. 阴影：地面投影随浮动高度变化 ===== */
+  .ground-shadow {
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    width: 50px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(46, 62, 38, 0.25);
+    transform: translateX(-50%);
+    z-index: 1;
+    will-change: width, opacity, transform;
+    transition: width 0.2s ease-out, opacity 0.2s ease-out;
+  }
+  .suanbao-root.edge .ground-shadow,
+  .suanbao-root.dragging .ground-shadow { display: none; }
+
+  /* ===== 5. 休眠/唤醒：夜间或长时间无交互自动睡觉 ===== */
+  .sleep-zzz {
+    position: absolute;
+    top: -18px;
+    right: -8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #6f5ee7;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 3;
+  }
+  @keyframes zzz-float {
+    0%   { opacity: 0; transform: translate(0, 0) scale(0.6); }
+    30%  { opacity: 1; transform: translate(4px, -8px) scale(0.9); }
+    70%  { opacity: 1; transform: translate(6px, -14px) scale(1); }
+    100% { opacity: 0; transform: translate(8px, -22px) scale(1.1); }
+  }
+  .sleep-zzz.show { animation: zzz-float 2.5s ease-out infinite; }
+
+  @keyframes sleep-breathe {
+    0%, 100% { transform: scale(1) translateY(0); }
+    50%      { transform: scale(1.03) translateY(2px); }
+  }
+  .sleeping-anim { animation: sleep-breathe 3s ease-in-out infinite !important; }
+
+  /* 休眠遮罩：蒜宝变暗 */
+  .sleep-dim {
+    filter: brightness(0.7) saturate(0.6) !important;
+  }
+
+  /* ===== 6. 随机走动 ===== */
+  .suanbao-root.walking {
+    transition: left 3.5s cubic-bezier(0.25, 0.45, 0.45, 0.95),
+                top 3.5s cubic-bezier(0.25, 0.45, 0.45, 0.95) !important;
+    opacity: 0.45;  /* 走动时半透明，不挡内容 */
+  }
+  /* 走动时轻微左右摇摆 */
+  @keyframes walk-wobble {
+    0%, 100% { transform: rotate(-2deg); }
+    50%      { transform: rotate(2deg); }
+  }
+  .walking .suanbao-mascot {
+    animation: walk-wobble 0.5s ease-in-out infinite !important;
+  }
+  /* 让开动画：快速跑向边缘 */
+  .suanbao-root.dodging {
+    transition: left 0.6s cubic-bezier(0.34, 1.56, 0.64, 1),
+                top 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  }
+
+  .controls {
+    margin-top: 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    max-width: 400px;
+  }
+  .btn {
+    padding: 8px 18px;
+    border: 1.5px solid #ddd;
+    border-radius: 20px;
+    background: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #555;
+  }
+  .btn:hover { border-color: #97C459; color: #3B6D11; }
+  .btn.active {
+    background: #97C459;
+    color: #fff;
+    border-color: #3B6D11;
+  }
+  .btn-recall {
+    border-color: #534AB7 !important;
+    color: #534AB7 !important;
+    background: #fff !important;
+  }
+
+  .drag-hint {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #534AB7;
+    font-weight: 500;
+  }
+
+  .legend {
+    margin-top: 16px;
+    font-size: 12px;
+    color: #999;
+    text-align: center;
+    max-width: 360px;
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+  <h1>蒜宝桌面宠物预览</h1>
+  <p class="subtitle">碰到屏幕边身体藏墙后，只露脑袋左右张望俏皮偷看</p>
+
+  <div class="phone-frame" id="phone">
+    <div class="status-bar">
+      当前状态：<span class="state-badge" id="stateBadge" style="background:#e8f5e0;color:#3B6D11">IDLE</span>
+      <span style="margin-left:12px;color:#aaa" id="edgeHint"></span>
+    </div>
+
+    <div class="suanbao-root" id="suanbao">
+      <div class="speech-bubble" id="speechBubble"></div>
+      <div class="ground-shadow" id="groundShadow"></div>
+      <div class="suanbao-mascot idle-micro" id="mascot">
+        <div class="thinking-dots" id="thinkingDots" style="display:none">
+          <div class="thinking-dot"></div>
+          <div class="thinking-dot"></div>
+          <div class="thinking-dot"></div>
+        </div>
+        <img id="mascotImg" src="suanbao-mascot.png" alt="蒜宝" draggable="false">
+        <div class="blink-overlay" id="blinkOverlay"></div>
+        <div class="sleep-zzz" id="sleepZzz">Z</div>
+      </div>
+      <div class="suanbao-name" id="suanbaoName">蒜宝</div>
+    </div>
+  </div>
+
+  <div class="drag-hint">按住蒜宝往屏幕边拖 · 碰到边先收起再探头</div>
+
+  <div class="controls">
+    <button class="btn active" data-state="IDLE">待机 IDLE</button>
+    <button class="btn" data-state="THINKING">思考 THINKING</button>
+    <button class="btn" data-state="SUCCESS">成功 SUCCESS</button>
+    <button class="btn" data-state="SAD">难过 SAD</button>
+    <button class="btn btn-recall" id="recallBtn">召回蒜宝</button>
+    <button class="btn btn-recall" id="hideBtn" style="border-color:#e74c3c;color:#e74c3c">收起蒜宝</button>
+    <button class="btn" id="rollbackBtn" style="border-color:#e67e22;color:#e67e22;font-weight:600">↩ 回退 v2</button>
+  </div>
+
+  <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+    <button class="btn" id="taskSuccessBtn" style="border-color:#97C459;color:#3B6D11;font-weight:600">▶ 执行任务（成功）</button>
+    <button class="btn" id="taskFailBtn" style="border-color:#e74c3c;color:#e74c3c;font-weight:600">▶ 执行任务（失败）</button>
+    <button class="btn" id="taskStopBtn" style="border-color:#888;color:#888">■ 停止任务</button>
+  </div>
+
+  <div class="legend">
+    <b>蒜宝行为</b>：平时待机不乱跑。60秒无操作 → 走动一圈溜达 → 走完睡觉(Zzz)。<br>
+    点屏幕空白处 → 蒜宝让到边缘探头。点蒜宝 → 戳晃/长按缩球。拖到边缘 → 探头偷看。
+  </div>
+
+<script>
+// ===== 回退到 v2 =====
+document.getElementById('rollbackBtn').addEventListener('click', () => {
+  if (confirm('确定回退到 v2 版本吗？当前 v3 的随机走动/休眠/阴影会被移除。')) {
+    window.location.href = 'preview-v2-backup.html';
+  }
+});
+
+const phone = document.getElementById('phone');
+const suanbao = document.getElementById('suanbao');
+const mascot = document.getElementById('mascot');
+const mascotImg = document.getElementById('mascotImg');
+const thinkingDots = document.getElementById('thinkingDots');
+const suanbaoName = document.getElementById('suanbaoName');
+
+let businessState = 'IDLE';
+let isDragging = false;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+let posX = 0;
+let posY = 0;
+let isReturning = false;
+let currentEdge = null;     // 当前贴着哪条边: 'left'/'right'/'top'/'bottom'/null
+let peekTimeout = null;
+let edgeAnimStage = 'none'; // 'none' | 'hiding' | 'peeking'
+
+const MASCOT_W = 80;
+const MASCOT_H = 96;
+const STATUS_BAR_H = 36;  // 顶部状态栏高度，上边探头要露在它下方
+// 触碰阈值
+const TOUCH_THRESHOLD = 25;
+
+function getPhoneSize() {
+  // 用 clientWidth/clientHeight（content-box，不含 border），避免 border 导致右边/下边偏差
+  return { w: phone.clientWidth, h: phone.clientHeight };
+}
+
+function centerSuanbao() {
+  const { w, h } = getPhoneSize();
+  posX = (w - MASCOT_W) / 2;
+  posY = (h - MASCOT_H) / 2;
+  applyPos();
+}
+
+function applyPos() {
+  suanbao.style.left = posX + 'px';
+  suanbao.style.top = posY + 'px';
+}
+
+// 计算蒜宝边框到屏幕各边的距离（可为负，表示已溢出）
+function getEdgeDistances() {
+  const { w, h } = getPhoneSize();
+  return {
+    left: posX,
+    right: w - posX - MASCOT_W,
+    top: posY,
+    bottom: h - posY - MASCOT_H,
+  };
+}
+
+// 检测当前碰到了哪条边（蒜宝边框距屏幕边 < 阈值）
+function getTouchedEdge() {
+  const d = getEdgeDistances();
+  // 上边要减去状态栏高度，蒜宝贴状态栏下方才算碰到"上边"
+  const topDist = d.top - STATUS_BAR_H;
+  const edges = [
+    { name: 'left',   dist: d.left },
+    { name: 'right',  dist: d.right },
+    { name: 'top',    dist: topDist },
+    { name: 'bottom', dist: d.bottom },
+  ];
+  // 只要有边距 < 阈值，就算碰到
+  const touched = edges.filter(e => e.dist < TOUCH_THRESHOLD);
+  if (touched.length === 0) return null;
+  // 取最贴边的那条
+  touched.sort((a, b) => a.dist - b.dist);
+  return touched[0].name;
+}
+
+function updateMascot() {
+  const touched = getTouchedEdge();
+  const wasAtEdge = (currentEdge !== null);
+  currentEdge = touched;
+
+  // 业务状态样式（拖拽中不碰边缘动画）
+  mascot.className = 'suanbao-mascot';
+  thinkingDots.style.display = (businessState === 'THINKING' && !currentEdge) ? 'flex' : 'none';
+  mascotImg.src = (businessState === 'THINKING' && !currentEdge) ? 'suanbao-thinking.png' : 'suanbao-mascot.png';
+
+  if (!currentEdge) {
+    // 不在边缘：恢复业务状态
+    if (wasAtEdge) clearEdgeState();
+    switch (businessState) {
+      case 'THINKING': mascot.classList.add('state-thinking'); break;
+      case 'SUCCESS':  mascot.classList.add('state-success'); break;
+      case 'SAD':       mascot.classList.add('state-sad'); break;
+      case 'IDLE':     mascot.classList.add('idle-micro'); break;
+    }
+    suanbaoName.style.opacity = '1';
+    suanbao.classList.remove('edge');
+    updateLabels(businessState);
+  } else if (!isDragging) {
+    // 在边缘且没在拖拽：松手后才触发收起→探头
+    if (!wasAtEdge || edgeAnimStage === 'none') {
+      triggerEdgeReaction(currentEdge);
+    }
+  } else {
+    // 拖拽中且在边缘：显示"即将探头"的提示
+    updateLabels('HIDING');
+    suanbaoName.style.opacity = '0';
+  }
+}
+
+// 碰到边缘的反应：收起 → 探头
+function triggerEdgeReaction(edge) {
+  clearTimeout(peekTimeout);
+  suanbao.classList.add('edge');
+  suanbaoName.style.opacity = '0';
+
+  // 第一阶段：收起——把蒜宝往边外推一点（身体藏进墙），同时缩小
+  edgeAnimStage = 'hiding';
+  pushToEdge(edge, 'hiding');
+  mascot.className = 'suanbao-mascot hiding-anim';
+  mascot.style.filter = 'drop-shadow(0 2px 4px rgba(46,62,38,0.15))';
+  updateLabels('HIDING');
+
+  // 第二阶段：0.3s 后探头——弹出来一点，半个身子留在墙外，半个头探出来
+  peekTimeout = setTimeout(() => {
+    edgeAnimStage = 'peeking';
+    pushToEdge(edge, 'peeking');
+    mascot.className = 'suanbao-mascot peeking-anim';
+    mascot.style.filter = 'drop-shadow(0 4px 8px rgba(46,62,38,0.2))';
+    updateLabels('PEEKING');
+  }, 300);
+}
+
+// 把蒜宝推到边缘外侧：身体藏墙后，只留头部
+function pushToEdge(edge, stage) {
+  const { w, h } = getPhoneSize();
+
+  if (isDragging) {
+    // 拖拽中不强行改位置，让用户控制
+    return;
+  }
+
+  // 留头部的量：露出来的部分（头部大小）
+  // 头部约占蒜宝上 1/3，所以纵向留 38px，横向留 55px（露大半张脸）
+  const headH = 38;
+  const headW = 55;
+
+  if (edge === 'left' || edge === 'right') {
+    // 左右贴边：身体横向藏一半，露内侧半边脸
+    const ox = stage === 'hiding' ? MASCOT_W - 25 : MASCOT_W - headW;
+    if (edge === 'left')  posX = -ox;
+    else                  posX = w - MASCOT_W + ox;
+    // 纵向居中（避开状态栏）
+    posY = (h - MASCOT_H) / 2;
+  } else if (edge === 'top') {
+    // 上贴边：身体藏在状态栏后，只留脑袋
+    // 蒜宝上沿在 -(MASCOT_H - headH)，但还要避开状态栏，所以位置 = STATUS_BAR_H - headH
+    const oy = stage === 'hiding' ? MASCOT_H - 18 : MASCOT_H - headH;
+    posY = STATUS_BAR_H - oy;  // 让头部刚好露在状态栏下方
+    posX = (w - MASCOT_W) / 2;
+  } else {  // bottom
+    const oy = stage === 'hiding' ? MASCOT_H - 18 : MASCOT_H - headH;
+    posY = h - MASCOT_H + oy;
+    posX = (w - MASCOT_W) / 2;
+  }
+  applyPos();
+}
+
+function clearEdgeState() {
+  clearTimeout(peekTimeout);
+  edgeAnimStage = 'none';
+  suanbao.classList.remove('edge');
+  suanbao.style.transform = '';
+  mascot.style.transform = '';
+  mascot.style.filter = '';
+  mascot.className = 'suanbao-mascot';
+}
+
+function updateLabels(state) {
+  const badge = document.getElementById('stateBadge');
+  const edgeHint = document.getElementById('edgeHint');
+  const colors = {
+    IDLE:      ['#e8f5e0','#3B6D11'],
+    THINKING:  ['#EEEDFE','#534AB7'],
+    SUCCESS:   ['#E1F5EE','#0F6E56'],
+    SAD:       ['#E6F1FB','#0C447C'],
+    PEEKING:   ['#FAEEDA','#854F0B'],
+    HIDING:    ['#F1EFE8','#5F5E5A'],
+    HIDDEN:    ['#F0F0F0','#999'],
+  };
+  const [bg, fg] = colors[state] || colors.IDLE;
+  badge.textContent = state;
+  badge.style.background = bg;
+  badge.style.color = fg;
+  if (state === 'PEEKING') edgeHint.textContent = '← 探头偷看';
+  else if (state === 'HIDING') edgeHint.textContent = '← 收起中';
+  else edgeHint.textContent = '';
+}
+
+// 拖拽
+function getEventPos(e) {
+  const rect = phone.getBoundingClientRect();
+  let clientX, clientY;
+  if (e.touches && e.touches[0]) {
+    clientX = e.touches[0].clientX;
+    clientY = e.touches[0].clientY;
+  } else {
+    clientX = e.clientX;
+    clientY = e.clientY;
+  }
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}
+
+function onDown(e) {
+  const pos = getEventPos(e);
+  // 命中检测：点在蒜宝范围内（含溢出部分，留 10px 余量方便点）
+  if (pos.x >= posX - 10 && pos.x <= posX + MASCOT_W + 10 &&
+      pos.y >= posY - 10 && pos.y <= posY + MASCOT_H + 10) {
+    isDragging = true;
+    isReturning = false;
+    suanbao.classList.add('dragging');
+    dragOffsetX = pos.x - posX;
+    dragOffsetY = pos.y - posY;
+    // 拖拽开始时清除边缘动画态，让用户自由拖
+    clearEdgeState();
+    currentEdge = null;
+    e.preventDefault();
+  }
+}
+
+function onMove(e) {
+  if (!isDragging) return;
+  const pos = getEventPos(e);
+  const { w, h } = getPhoneSize();
+
+  // 允许溢出屏幕边缘，但限制最大溢出量（至少留 18px 能点回）
+  const minX = -(MASCOT_W - 18);
+  const maxX = w - 18;
+  const minY = -(MASCOT_H - 18);
+  const maxY = h - 18;
+  posX = Math.max(minX, Math.min(maxX, pos.x - dragOffsetX));
+  posY = Math.max(minY, Math.min(maxY, pos.y - dragOffsetY));
+  applyPos();
+  updateMascot();
+  e.preventDefault();
+}
+
+function onUp() {
+  if (!isDragging) return;
+  isDragging = false;
+  suanbao.classList.remove('dragging');
+  // 松手后重新检测边缘状态——如果在边缘，触发探头动画
+  updateMascot();
+}
+
+function returnToCenter() {
+  isReturning = true;
+  clearEdgeState();
+}
+
+function returnAnim() {
+  if (isReturning && !isDragging) {
+    const { w, h } = getPhoneSize();
+    const targetX = (w - MASCOT_W) / 2;
+    const targetY = (h - MASCOT_H) / 2;
+    posX += (targetX - posX) * 0.15;
+    posY += (targetY - posY) * 0.15;
+    if (Math.abs(posX - targetX) < 0.5 && Math.abs(posY - targetY) < 0.5) {
+      posX = targetX;
+      posY = targetY;
+      isReturning = false;
+    }
+    applyPos();
+    updateMascot();
+  }
+  requestAnimationFrame(returnAnim);
+}
+
+suanbao.addEventListener('mousedown', onDown);
+document.addEventListener('mousemove', onMove);
+document.addEventListener('mouseup', onUp);
+suanbao.addEventListener('touchstart', onDown, { passive: false });
+document.addEventListener('touchmove', onMove, { passive: false });
+document.addEventListener('touchend', onUp);
+
+// 任何鼠标移动/触摸都算交互，重置休眠计时
+document.addEventListener('mousemove', () => recordInteraction());
+document.addEventListener('touchstart', () => recordInteraction(), { passive: true });
+
+// 点屏幕空白处（非蒜宝）→ 蒜宝让到边缘探头
+phone.addEventListener('mousedown', (e) => {
+  const pos = getEventPos(e);
+  // 如果点的不是蒜宝范围内
+  if (pos.x < posX - 10 || pos.x > posX + MASCOT_W + 10 ||
+      pos.y < posY - 10 || pos.y > posY + MASCOT_H + 10) {
+    dodgeToEdge();
+  }
+});
+phone.addEventListener('touchstart', (e) => {
+  const pos = getEventPos(e);
+  if (pos.x < posX - 10 || pos.x > posX + MASCOT_W + 10 ||
+      pos.y < posY - 10 || pos.y > posY + MASCOT_H + 10) {
+    dodgeToEdge();
+  }
+}, { passive: true });
+
+let lastTapTime = 0;
+suanbao.addEventListener('dblclick', returnToCenter);
+suanbao.addEventListener('touchend', (e) => {
+  const now = Date.now();
+  if (now - lastTapTime < 300) returnToCenter();
+  lastTapTime = now;
+});
+
+document.getElementById('recallBtn').addEventListener('click', returnToCenter);
+
+// 收起/显示蒜宝
+let isHidden = false;
+const hideBtn = document.getElementById('hideBtn');
+function hideSuanbao() {
+  if (isHidden) {
+    // 显示回来
+    isHidden = false;
+    suanbao.style.display = '';
+    hideBtn.textContent = '收起蒜宝';
+  } else {
+    // 收起：先缩一下再隐藏
+    isHidden = true;
+    isDragging = false;
+    clearEdgeState();
+    mascot.style.transition = 'transform 0.3s ease-in, opacity 0.3s ease-in';
+    mascot.style.transform = 'scale(0)';
+    mascot.style.opacity = '0';
+    setTimeout(() => {
+      if (isHidden) {
+        suanbao.style.display = 'none';
+        mascot.style.transition = '';
+        mascot.style.transform = '';
+        mascot.style.opacity = '';
+      }
+    }, 300);
+    hideBtn.textContent = '显示蒜宝';
+    updateLabels('HIDDEN');
+  }
+}
+hideBtn.addEventListener('click', hideSuanbao);
+
+// ===== 1. 触摸反馈：戳一下晃、长按缩成球 =====
+const blinkOverlay = document.getElementById('blinkOverlay');
+let pokeLockUntil = 0;      // 戳的冷却时间
+let longPressTimer = null;
+let longPressActive = false;
+let touchStartTime = 0;
+let touchStartX = 0;
+let touchStartY = 0;
+
+function pokeSuanbao() {
+  const now = Date.now();
+  if (now < pokeLockUntil) return;
+  if (isDragging || isHidden) return;
+  pokeLockUntil = now + 600;
+
+  // 清掉浮动动画，播放戳晃动画
+  mascot.classList.remove('idle-micro', 'poke-anim');
+  void mascot.offsetWidth;  // 强制 reflow
+  mascot.classList.add('poke-anim');
+
+  // 600ms 后恢复
+  setTimeout(() => {
+    mascot.classList.remove('poke-anim');
+    if (!currentEdge && !isDragging && !isHidden) {
+      mascot.classList.add('idle-micro');
+    }
+  }, 500);
+
+  // 偶尔冒个气泡
+  if (Math.random() < 0.4) {
+    showSpeech('哎！', 'idle', 1000);
+  }
+}
+
+function startLongPress() {
+  if (isDragging || isHidden || currentEdge) return;
+  longPressActive = true;
+  mascot.classList.remove('idle-micro', 'poke-anim');
+  void mascot.offsetWidth;
+  mascot.classList.add('longpress-anim');
+  showSpeech('呜...', 'sad', 2000);
+}
+
+function endLongPress() {
+  if (!longPressActive) return;
+  longPressActive = false;
+  mascot.classList.remove('longpress-anim');
+  mascot.style.transform = '';
+  if (!currentEdge && !isDragging && !isHidden) {
+    mascot.classList.add('idle-micro');
+  }
+}
+
+// 在蒜宝上检测单击/长按（不影响拖拽，拖拽有位移阈值区分）
+suanbao.addEventListener('mousedown', (e) => {
+  touchStartTime = Date.now();
+  const pos = getEventPos(e);
+  touchStartX = pos.x;
+  touchStartY = pos.y;
+  longPressTimer = setTimeout(startLongPress, 500);
+});
+suanbao.addEventListener('mouseup', (e) => {
+  clearTimeout(longPressTimer);
+  if (longPressActive) { endLongPress(); return; }
+  // 如果几乎没移动（<5px），算"戳一下"
+  const dt = Date.now() - touchStartTime;
+  const pos = getEventPos(e);
+  const dx = pos.x - touchStartX;
+  const dy = pos.y - touchStartY;
+  if (Math.sqrt(dx*dx + dy*dy) < 5 && dt < 500) {
+    pokeSuanbao();
+  }
+});
+suanbao.addEventListener('touchstart', (e) => {
+  touchStartTime = Date.now();
+  const pos = getEventPos(e);
+  touchStartX = pos.x;
+  touchStartY = pos.y;
+  longPressTimer = setTimeout(startLongPress, 500);
+}, { passive: false });
+suanbao.addEventListener('touchend', (e) => {
+  clearTimeout(longPressTimer);
+  if (longPressActive) { endLongPress(); return; }
+  const dt = Date.now() - touchStartTime;
+  const pos = getEventPos(e.changedTouches ? { touches: e.changedTouches } : e);
+  const dx = pos.x - touchStartX;
+  const dy = pos.y - touchStartY;
+  if (Math.sqrt(dx*dx + dy*dy) < 5 && dt < 500) {
+    pokeSuanbao();
+  }
+});
+
+// ===== 2. 待机微动画：随机眨眼 =====
+function doBlink() {
+  if (isHidden || isDragging || currentEdge) {
+    setTimeout(doBlink, 2000);
+    return;
+  }
+  blinkOverlay.classList.add('blinking');
+  setTimeout(() => blinkOverlay.classList.remove('blinking'), 200);
+  // 下次眨眼：2-5秒随机
+  setTimeout(doBlink, 2000 + Math.random() * 3000);
+}
+
+// ===== 3. 对话气泡 =====
+const speechBubble = document.getElementById('speechBubble');
+let speechTimer = null;
+function showSpeech(text, type, duration) {
+  clearTimeout(speechTimer);
+  speechBubble.textContent = text;
+  speechBubble.className = 'speech-bubble ' + (type || 'idle');
+  // 强制 reflow 后显示
+  void speechBubble.offsetWidth;
+  speechBubble.classList.add('show');
+  speechTimer = setTimeout(() => {
+    speechBubble.classList.remove('show');
+  }, duration || 1500);
+}
+function hideSpeech() {
+  clearTimeout(speechTimer);
+  speechBubble.classList.remove('show');
+}
+
+// 启动眨眼
+setTimeout(doBlink, 1500);
+
+// ===== 4. 地面阴影：随浮动高度变化 =====
+const groundShadow = document.getElementById('groundShadow');
+function updateShadow() {
+  if (isHidden || isDragging || currentEdge) {
+    groundShadow.style.opacity = '0';
+  } else {
+    // 读 mascot 当前的 translateY（浮动动画在 -5~0 之间）
+    const matrix = new DOMMatrix(getComputedStyle(mascot).transform);
+    const ty = matrix.m42; // translateY
+    // ty 范围约 -5(高点) ~ 0(低点)
+    // 高点：阴影小、淡；低点：阴影大、浓
+    const ratio = (ty + 5) / 5; // 0=高点, 1=低点
+    const width = 40 + ratio * 18;   // 40~58px
+    const opacity = 0.12 + ratio * 0.18; // 0.12~0.30
+    groundShadow.style.width = width + 'px';
+    groundShadow.style.opacity = opacity;
+  }
+  requestAnimationFrame(updateShadow);
+}
+
+// ===== 5. 休眠/唤醒 =====
+const sleepZzz = document.getElementById('sleepZzz');
+let isSleeping = false;
+let lastInteractTime = Date.now();
+const SLEEP_AFTER = 60000; // 60秒无交互自动睡觉
+const WALK_AFTER = 60000;  // 60秒无交互才开始走动
+
+function wakeUp() {
+  if (!isSleeping) return;
+  isSleeping = false;
+  mascot.classList.remove('sleeping-anim', 'sleep-dim');
+  sleepZzz.classList.remove('show');
+  // 恢复 idle
+  if (!currentEdge && !isDragging && businessState === 'IDLE') {
+    mascot.classList.add('idle-micro');
+  }
+  showSpeech('嗯~', 'success', 1000);
+}
+
+function goToSleep() {
+  if (isSleeping || isHidden || isDragging) return;
+  // 只有 IDLE 状态才睡觉，任务执行中不睡
+  if (businessState !== 'IDLE') return;
+  isSleeping = true;
+  mascot.classList.remove('idle-micro', 'poke-anim');
+  mascot.classList.add('sleeping-anim', 'sleep-dim');
+  sleepZzz.classList.add('show');
+  showSpeech('zZ...', 'thinking', 99999);
+}
+
+// 记录交互时间
+function recordInteraction() {
+  lastInteractTime = Date.now();
+  if (isSleeping) wakeUp();
+}
+
+// 休眠检测循环：60秒无交互 → 先走动，再睡
+function sleepCheck() {
+  if (!isSleeping && !isDragging && !currentEdge && !isHidden &&
+      businessState === 'IDLE' &&
+      Date.now() - lastInteractTime > SLEEP_AFTER) {
+    // 先尝试走动，走完再睡
+    if (!isWalking) {
+      randomWalk();
+      // 走完后 2 秒再睡
+      setTimeout(() => goToSleep(), 5500);
+    }
+  }
+  setTimeout(sleepCheck, 2000);
+}
+setTimeout(sleepCheck, 3000);
+
+// ===== 6. 随机走动 =====
+let walkTimer = null;
+let isWalking = false;
+
+function randomWalk() {
+  if (isSleeping || isHidden || isDragging || currentEdge || businessState !== 'IDLE') {
+    return;
+  }
+
+  isWalking = true;
+  lastInteractTime = Date.now();
+  suanbao.classList.add('walking');
+  mascot.classList.remove('idle-micro');
+
+  const { w, h } = getPhoneSize();
+  // 避开中央区域：只选四个边角区域走动
+  const margin = 50;
+  const cx = w / 2, cy = h / 2;
+  const centralR = 120; // 中央安全圆半径，不走进去
+  let targetX, targetY;
+  let attempts = 0;
+  do {
+    targetX = margin + Math.random() * (w - MASCOT_W - margin * 2);
+    targetY = margin + Math.random() * (h - MASCOT_H - margin * 2);
+    const dx = (targetX + MASCOT_W/2) - cx;
+    const dy = (targetY + MASCOT_H/2) - cy;
+    if (Math.sqrt(dx*dx + dy*dy) > centralR) break;
+    attempts++;
+  } while (attempts < 5);
+
+  posX = targetX;
+  posY = targetY;
+  applyPos();
+
+  // 3.5 秒走完后停下
+  setTimeout(() => {
+    suanbao.classList.remove('walking');
+    isWalking = false;
+    if (!currentEdge && !isDragging && !isHidden && businessState === 'IDLE' && !isSleeping) {
+      mascot.classList.add('idle-micro');
+    }
+  }, 3500);
+}
+
+// 蒜宝让到边缘：用户点屏幕空白处，蒜宝躲到最近的边探头收起
+function dodgeToEdge() {
+  if (isSleeping || isHidden || isDragging) return;
+  // 只有空闲走动或待机时才让
+  if (businessState !== 'IDLE') return;
+  // 已经在边缘就不重复
+  if (currentEdge) return;
+
+  const { w, h } = getPhoneSize();
+  const centerX = posX + MASCOT_W / 2;
+  const centerY = posY + MASCOT_H / 2;
+  // 找最近的边
+  const dl = centerX;
+  const dr = w - centerX;
+  const dt = centerY;
+  const db = h - centerY;
+  const minD = Math.min(dl, dr, dt, db);
+  let edge;
+  if (minD === dl) edge = 'left';
+  else if (minD === dr) edge = 'right';
+  else if (minD === dt) edge = 'top';
+  else edge = 'bottom';
+
+  // 停止走动
+  suanbao.classList.remove('walking');
+  isWalking = false;
+  suanbao.classList.add('dodging');
+
+  // 快速移到边
+  const headH = 38, headW = 55;
+  if (edge === 'left')   posX = -(MASCOT_W - headW);
+  if (edge === 'right')  posX = w - MASCOT_W + (MASCOT_W - headW);
+  if (edge === 'top')    posY = STATUS_BAR_H - (MASCOT_H - headH);
+  if (edge === 'bottom') posY = h - MASCOT_H + (MASCOT_H - headH);
+  applyPos();
+
+  setTimeout(() => {
+    suanbao.classList.remove('dodging');
+    // 触发探头
+    currentEdge = edge;
+    triggerEdgeReaction(edge);
+  }, 600);
+}
+
+// 每 4-7 秒走动一次
+function scheduleWalk() {
+  clearTimeout(walkTimer);
+  walkTimer = setTimeout(() => {
+    randomWalk();
+    scheduleWalk();
+  }, 4000 + Math.random() * 3000);
+}
+// 走动不再自动定时触发，只有 60 秒无交互时才走一次
+// setTimeout(scheduleWalk, 2500);  -- 已禁用
+
+// 启动阴影
+updateShadow();
+
+// ===== 任务状态自动驱动蒜宝 =====
+// 调用方式：setBusinessState('THINKING') 等，自动更新 UI
+function setBusinessState(state) {
+  businessState = state;
+  recordInteraction();  // 任务变更也算交互，重置休眠
+  // 任务开始时唤醒
+  if (state !== 'IDLE' && isSleeping) wakeUp();
+  // 任务中停止走动
+  if (state !== 'IDLE' && isWalking) {
+    suanbao.classList.remove('walking');
+    isWalking = false;
+  }
+  // 同步按钮高亮
+  document.querySelectorAll('.btn[data-state]').forEach(b => {
+    b.classList.toggle('active', b.dataset.state === state);
+  });
+  // 如果在边缘探头中，先召回中央再显示新状态
+  if (currentEdge) {
+    clearEdgeState();
+    currentEdge = null;
+  }
+  updateMascot();
+  // 联动对话气泡
+  const speechMap = {
+    IDLE:     null,
+    THINKING: { text: '思考中...', type: 'thinking', dur: 2500 },
+    SUCCESS:  { text: '完成啦！', type: 'success', dur: 2000 },
+    SAD:      { text: '呜...失败了', type: 'sad', dur: 2000 },
+  };
+  const s = speechMap[state];
+  if (s) showSpeech(s.text, s.type, s.dur);
+  else hideSpeech();
+}
+
+let taskTimer = null;
+let autoReturnTimer = null;
+
+function startTask(willSucceed) {
+  if (isHidden) hideSuanbao();  // 收起状态下自动显示
+  clearTimeout(taskTimer);
+  clearTimeout(autoReturnTimer);
+  // 1. 发起任务 → 思考
+  setBusinessState('THINKING');
+  // 2. 模拟任务执行 2.5 秒后 → 成功/失败
+  taskTimer = setTimeout(() => {
+    setBusinessState(willSucceed ? 'SUCCESS' : 'SAD');
+    // 3. 2 秒后自动回待机
+    autoReturnTimer = setTimeout(() => {
+      setBusinessState('IDLE');
+    }, 2000);
+  }, 2500);
+}
+
+function stopTask() {
+  clearTimeout(taskTimer);
+  clearTimeout(autoReturnTimer);
+  setBusinessState('IDLE');
+}
+
+document.getElementById('taskSuccessBtn').addEventListener('click', () => startTask(true));
+document.getElementById('taskFailBtn').addEventListener('click', () => startTask(false));
+document.getElementById('taskStopBtn').addEventListener('click', stopTask);
+
+document.querySelectorAll('.btn[data-state]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.btn[data-state]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    businessState = btn.dataset.state;
+    updateMascot();
+  });
+});
+
+window.addEventListener('load', () => {
+  centerSuanbao();
+  updateMascot();
+  returnAnim();
+});
+
+window.addEventListener('resize', () => {
+  if (!isDragging) centerSuanbao();
+});
+</script>
+</body>
+</html>

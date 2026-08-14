@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  蒜宝 Demo 布局示例。
+
+  关键点：
+  - SuanbaoView 必须放在一个有明确尺寸的父容器里（这里用 ConstraintLayout 铺满），
+    View 本身的 layout_width/height 用 match_parent，让内部能拿到宽高做边缘检测。
+  - 底层是普通内容区，蒜宝叠在最上层飘浮。
+-->
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- 你的 App 正常内容区 -->
+    <TextView
+        android:id="@+id/hello_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="蒜宝会在这层之上飘浮"
+        android:layout_marginTop="100dp"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <!-- 蒜宝：铺满父容器，Canvas 内部自己定位 + 漂移 -->
+    <com.kod.suanbao.SuanbaoView
+        android:id="@+id/suanbao"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

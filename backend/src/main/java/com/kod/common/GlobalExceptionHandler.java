@@ -16,6 +16,15 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class GlobalExceptionHandler {
 
     /**
+     * 卡时不足：将自动补足报价返回给客户端展示确认框。
+     */
+    @ExceptionHandler(CardHourBalanceException.class)
+    public Result<Object> handleCardHourBalance(CardHourBalanceException e) {
+        log.info("卡时余额不足：code={}, quote={}", e.getCode(), e.getQuote());
+        return Result.fail(e.getCode(), e.getMessage(), e.getQuote());
+    }
+
+    /**
      * 业务异常。
      */
     @ExceptionHandler(BizException.class)

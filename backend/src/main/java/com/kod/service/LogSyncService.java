@@ -7,6 +7,7 @@ import com.kod.entity.*;
 import com.kod.mapper.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -132,6 +133,12 @@ public class LogSyncService {
 
     public boolean isRunning() { return running; }
 
+    /** 下一次发送前主动追平一次日志，尽量缩短“最后一条请求”与额度停用之间的窗口。 */
+    public int syncNow(Long requestedUserId) throws Exception {
+        if (!running || requestedUserId == null || !requestedUserId.equals(userId)) return 0;
+        return syncOnce();
+    }
+
     // -------------------------------------------------------
     // 检查连接状态
     // -------------------------------------------------------
@@ -179,7 +186,7 @@ public class LogSyncService {
      *   <li>扣减余额 + 聚合看板</li>
      * </ol>
      */
-    private int syncOnce() throws Exception {
+    private synchronized int syncOnce() throws Exception {
         User user = userMapper.selectById(userId);
         if (user == null || user.getConnect() == null) return 0;
 
@@ -189,7 +196,7 @@ public class LogSyncService {
         RelayStation station = stationMapper.selectById(key.getStationId());
         if (station == null || station.getUrl() == null) return 0;
 
-        String apiKey = key.getApiKey();
+        String apiKey = key.getApiKey() == null ? "" : key.getApiKey().trim();
         String apiBase = station.getUrl().replaceAll("/v1/?$", "").replaceAll("/$", "");
 
         // 1. 请求 new-api
@@ -265,11 +272,15 @@ public class LogSyncService {
 
             try {
                 logMapper.insert(entry);
-                count++;
-                if (type == 2) totalNewQuota += entry.getQuota();
+            } catch (DuplicateKeyException e) {
+                continue;
             } catch (Exception e) {
-                // 唯一键冲突 → 跳过
+                log.warn("[LogSync] 写入日志失败，requestId={}: {}", requestId, e.getMessage());
+                continue;
             }
+
+            count++;
+            if (type == 2) totalNewQuota += entry.getQuota();
         }
 
         // 3. 扣款 + 聚合
@@ -288,32 +299,32 @@ public class LogSyncService {
     // -------------------------------------------------------
 
     private void deductAndAggregate(User user, int totalNewQuota) {
-        if (totalNewQuota <= 0) {
-            log.info("[LogSync] totalNewQuota={} <= 0，跳过扣款和聚合", totalNewQuota);
-            return;
+        if (totalNewQuota > 0) {
+            log.info("[LogSync] 开始扣款和聚合，quota={}", totalNewQuota);
+
+            // 扣减余额：消费金额 = quota / QUOTA_PER_UNIT
+            BigDecimal cost = BigDecimal.valueOf(totalNewQuota)
+                    .divide(BigDecimal.valueOf(QUOTA_PER_UNIT), 6, RoundingMode.HALF_UP);
+
+            BigDecimal currentBalance = user.getBalance() != null ? user.getBalance() : BigDecimal.ZERO;
+            BigDecimal newBalance = currentBalance.subtract(cost);
+            if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
+                log.warn("[LogSync] 余额不足！userId={}, balance={}, cost={}", user.getId(), currentBalance, cost);
+                newBalance = BigDecimal.ZERO;
+            }
+
+            BigDecimal historical = user.getHistoricalConsumption() != null
+                    ? user.getHistoricalConsumption() : BigDecimal.ZERO;
+
+            user.setBalance(newBalance);
+            user.setHistoricalConsumption(historical.add(cost));
+            userMapper.updateById(user);
+            log.info("[LogSync] 扣款完成，userId={}, cost={}, newBalance={}", user.getId(), cost, newBalance);
+        } else {
+            log.info("[LogSync] 本批日志无需人民币扣款");
         }
-        log.info("[LogSync] 开始扣款和聚合，quota={}", totalNewQuota);
 
-        // 扣减余额：消费金额 = quota / QUOTA_PER_UNIT
-        BigDecimal cost = BigDecimal.valueOf(totalNewQuota)
-                .divide(BigDecimal.valueOf(QUOTA_PER_UNIT), 6, RoundingMode.HALF_UP);
-
-        BigDecimal currentBalance = user.getBalance() != null ? user.getBalance() : BigDecimal.ZERO;
-        BigDecimal newBalance = currentBalance.subtract(cost);
-        if (newBalance.compareTo(BigDecimal.ZERO) < 0) {
-            log.warn("[LogSync] 余额不足！userId={}, balance={}, cost={}", user.getId(), currentBalance, cost);
-            newBalance = BigDecimal.ZERO;
-        }
-
-        BigDecimal historical = user.getHistoricalConsumption() != null
-                ? user.getHistoricalConsumption() : BigDecimal.ZERO;
-
-        user.setBalance(newBalance);
-        user.setHistoricalConsumption(historical.add(cost));
-        userMapper.updateById(user);
-        log.info("[LogSync] 扣款完成，userId={}, cost={}, newBalance={}", user.getId(), cost, newBalance);
-
-        // 聚合到 dashboard_hourly（使用最新一批日志）
+        // 无论人民币还是卡时结算，日志都必须进入原有看板。
         aggregateDashboard();
     }
 

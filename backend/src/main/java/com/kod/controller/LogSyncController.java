@@ -51,6 +51,14 @@ public class LogSyncController {
         return Result.ok(data);
     }
 
+    @PostMapping("/sync/now")
+    public Result<Map<String, Object>> syncNow(
+            @RequestHeader(value = "Authorization", required = false) String authorization) throws Exception {
+        Long userId = sessionService.parseUserIdFromHeader(authorization);
+        int synced = logSyncService.syncNow(userId);
+        return Result.ok(Map.of("synced", synced));
+    }
+
     /**
      * 查询同步状态。
      */

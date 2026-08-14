@@ -40,6 +40,7 @@ public class PaymentService {
     private final OrderMapper orderMapper;
     private final JwtUtil jwtUtil;
     private final PaymentProperties paymentProps;
+    private final ComputeReferralService referralService;
 
     // -------------------------------------------------------
     // 充值配置
@@ -295,6 +296,7 @@ public class PaymentService {
                 userMapper.updateById(user);
                 log.info("充值成功，userId={}, orderNo={}, amount={}, newBalance={}",
                         user.getId(), tradeNo, addAmount, newBalance);
+                referralService.recordFirstSuccessfulRecharge(order);
             }
             return "success";
         }

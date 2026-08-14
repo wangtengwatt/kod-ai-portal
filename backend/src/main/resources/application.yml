@@ -64,6 +64,25 @@ kod:
     # token 有效期（毫秒），默认 7 天
     expire-millis: ${JWT_EXPIRE_MILLIS:604800000}
 
+  compute:
+    # 逗号分隔。生产环境通过 KOD_COMPUTE_ADMIN_EMAILS 注入，不在源码中写死个人邮箱。
+    admin-emails: ${KOD_COMPUTE_ADMIN_EMAILS:}
+    kai-station-domains: ${KOD_COMPUTE_KAI_STATION_DOMAINS:kai.com}
+    card-hour-cny-rate: ${KOD_CARD_HOUR_CNY_RATE:1.002}
+    transfer-review-threshold: ${KOD_TRANSFER_REVIEW_THRESHOLD_CARD_HOURS:1000.000}
+    # 至少 32 位随机值，用于 AES-GCM 加密 GPU 交付信息。
+    delivery-secret: ${KOD_COMPUTE_DELIVERY_SECRET:}
+    # 本机内测可开启；生产环境应使用正式迁移工具，不应在启动时自动建表。
+    schema-init-enabled: ${KOD_COMPUTE_SCHEMA_INIT_ENABLED:false}
+    test-identity-enabled: ${KOD_COMPUTE_TEST_IDENTITY_ENABLED:false}
+    private-storage-directory: ${KOD_COMPUTE_PRIVATE_STORAGE_DIRECTORY:./data/compute-private}
+    # 一次性本地内测种子；compute_setting 标记保证不会重复扣款或造单。
+    demo-seed-enabled: ${KOD_COMPUTE_DEMO_SEED_ENABLED:false}
+    demo-supplier-email: ${KOD_COMPUTE_DEMO_SUPPLIER_EMAIL:}
+    demo-buyer-email: ${KOD_COMPUTE_DEMO_BUYER_EMAIL:}
+    # 用户购买 Token 套餐后对外交付的 KOD 代理地址；生产环境必须配置为公网 HTTPS 地址。
+    proxy-base-url: ${KOD_COMPUTE_PROXY_BASE_URL:http://127.0.0.1:8080/api/compute/proxy/v1}
+
 # 支付配置（在 kod 层级内）
   payment:
     epay-enabled: ${EPAY_ENABLED:true}

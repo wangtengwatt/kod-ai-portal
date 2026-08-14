@@ -43,9 +43,17 @@ public class Result<T> {
      * @return 失败结果
      */
     public static <T> Result<T> fail(int code, String message) {
+        return fail(code, message, null);
+    }
+
+    /**
+     * 创建带结构化业务数据的失败响应。
+     */
+    public static <T> Result<T> fail(int code, String message, T data) {
         Result<T> r = new Result<>();
         r.setCode(code);
         r.setMessage(message);
+        r.setData(data);
         return r;
     }
 }

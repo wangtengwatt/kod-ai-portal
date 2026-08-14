@@ -7,6 +7,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.core.env.Environment;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 /**
  * kod 官网后端服务启动类。
  *
@@ -24,8 +27,12 @@ public class KodPortalApplication {
      */
     public static void main(String[] args) {
         // 自动加载项目根目录 .env 文件（本地开发），docker-compose 部署时已注入，加载失败不影响启动
+        Path workingDirectory = Path.of("").toAbsolutePath().normalize();
+        Path envDirectory = Files.isRegularFile(workingDirectory.resolve(".env"))
+                ? workingDirectory
+                : workingDirectory.resolve("..").normalize();
         Dotenv dotenv = Dotenv.configure()
-                .directory("../")
+                .directory(envDirectory.toString())
                 .ignoreIfMissing()
                 .load();
         dotenv.entries().forEach(e -> System.setProperty(e.getKey(), e.getValue()));

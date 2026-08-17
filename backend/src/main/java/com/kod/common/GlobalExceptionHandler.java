@@ -1,6 +1,7 @@
 package com.kod.common;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -53,6 +54,16 @@ public class GlobalExceptionHandler {
     public Result<Void> handleDuplicate(DuplicateKeyException e) {
         log.warn("唯一约束冲突：{}", e.getMessage());
         return Result.fail(409, "数据已存在（唯一约束冲突）");
+    }
+
+    /**
+     * 数据库连接或访问失败。不要把驱动、地址、账号等内部细节返回给客户端。
+     */
+    @ExceptionHandler(DataAccessException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public Result<Void> handleDatabaseUnavailable(DataAccessException e) {
+        log.error("数据库暂时不可用", e);
+        return Result.fail(503, "数据库暂时不可用，请检查数据库网络连接后重试");
     }
 
     /**

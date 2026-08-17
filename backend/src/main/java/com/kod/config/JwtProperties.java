@@ -17,4 +17,7 @@ public class JwtProperties {
 
     /** token 有效期（毫秒）。 */
     private long expireMillis = 604800000L;
+
+    /** refresh token 有效期（毫秒），默认 30 天。 */
+    private long refreshExpireMillis = 2592000000L;
 }

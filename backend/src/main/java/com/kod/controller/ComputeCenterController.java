@@ -408,7 +408,7 @@ public class ComputeCenterController {
             @RequestHeader("Authorization") String authorization,
             @RequestBody AdminSettingsBody body) {
         return Result.ok(computeService.updateAdminSettings(userId(authorization),
-                body.transferReviewThreshold(), body.platformFeeRate()));
+                body.transferReviewThreshold(), body.platformFeeRate(), body.usdCnyRate()));
     }
 
     @GetMapping("/admin/suppliers")
@@ -599,7 +599,8 @@ public class ComputeCenterController {
     public record GrantBody(String recipientEmail, BigDecimal cardHours, LocalDateTime expiresAt, String reason) {
     }
 
-    public record AdminSettingsBody(BigDecimal transferReviewThreshold, BigDecimal platformFeeRate) {
+    public record AdminSettingsBody(BigDecimal transferReviewThreshold, BigDecimal platformFeeRate,
+                                    BigDecimal usdCnyRate) {
     }
 
     public record NodeReviewBody(boolean approved, String reason, String verificationNote) {

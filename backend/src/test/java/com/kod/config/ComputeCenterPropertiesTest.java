@@ -17,7 +17,8 @@ class ComputeCenterPropertiesTest {
                 new BigDecimal("1.002"),
                 new BigDecimal("1000.000"),
                 "delivery-secret", "./target/test-private", false, false,
-                false, "", "", "http://127.0.0.1:8080/api/compute/proxy/v1/");
+                false, "", "", "http://127.0.0.1:8080/api/compute/proxy/v1/",
+                new BigDecimal("7.2000"));
 
         assertTrue(properties.isAdminEmail("admin@kai.com"));
         assertTrue(properties.isAdminEmail(" USER@EXAMPLE.COM "));

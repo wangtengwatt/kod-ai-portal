@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,6 +32,7 @@ public class HealthController {
     private String appName;
 
     private final StringRedisTemplate stringRedisTemplate;
+    private final JdbcTemplate jdbcTemplate;
 
     /**
      * 健康检查接口。
@@ -41,11 +43,24 @@ public class HealthController {
     public Map<String, Object> health() {
         log.debug("收到健康检查请求");
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("status", "UP");
+        String databaseStatus = pingDatabase();
+        String redisStatus = pingRedis();
+        result.put("status", "UP".equals(databaseStatus) && "UP".equals(redisStatus) ? "UP" : "DEGRADED");
         result.put("app", appName);
-        result.put("redis", pingRedis());
+        result.put("database", databaseStatus);
+        result.put("redis", redisStatus);
         result.put("timestamp", LocalDateTime.now());
         return result;
+    }
+
+    private String pingDatabase() {
+        try {
+            Integer value = jdbcTemplate.queryForObject("SELECT 1", Integer.class);
+            return Integer.valueOf(1).equals(value) ? "UP" : "DOWN";
+        } catch (Exception e) {
+            log.warn("数据库探测失败：{}", e.getMessage());
+            return "DOWN";
+        }
     }
 
     /**

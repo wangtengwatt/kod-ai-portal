@@ -1,41 +1,53 @@
 # kod 官网后端 —— 主配置
 # 通过 spring.profiles.active 切换环境：dev（本地）/ test（测试）/ prod（正式）
-# 数据源与 Redis 默认值与参考项目 aiex-model-registry-service 保持一致（远程 dev 库），
-# 各项均支持环境变量覆盖：${ENV:默认值}。
+# 本地默认只连接 loopback；生产凭据必须通过环境变量或密钥管理系统注入。
 server:
   port: ${SERVER_PORT:8080}
 
 spring:
   application:
     name: kod-portal-backend
+  servlet:
+    multipart:
+      max-file-size: ${KOD_UPLOAD_MAX_FILE_SIZE:128MB}
+      max-request-size: ${KOD_UPLOAD_MAX_REQUEST_SIZE:130MB}
   profiles:
     # 默认激活本地开发环境；可用 --spring.profiles.active=test/prod 覆盖
     active: dev
   # 数据源（Druid 懒加载，启动时不会真正建连）
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
-    url: jdbc:mysql://${MYSQL_HOST:18.139.134.29}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:kod}?characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true&autoReconnect=true&rewriteBatchedStatements=true
-    username: ${MYSQL_USERNAME:aiex_dev}
-    password: ${MYSQL_PASSWORD:dHEe7LVClq2sIYRgnisR}
+    url: jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:kod}?characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&allowPublicKeyRetrieval=true&autoReconnect=true&rewriteBatchedStatements=true&connectTimeout=5000&socketTimeout=10000
+    username: ${MYSQL_USERNAME:kod}
+    password: ${MYSQL_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    initial-size: 0
+    min-idle: 0
+    max-active: 20
+    max-wait: 5000
+    validation-query: SELECT 1
+    validation-query-timeout: 3
+    test-on-borrow: true
+    test-while-idle: true
+    time-between-eviction-runs-millis: 60000
   # Redis（Lettuce 懒加载，启动时不会真正建连）
   data:
     redis:
-      host: ${REDIS_HOST:18.139.134.29}
+      host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:Fj41mxAfMOJJBctE19jj}
+      password: ${REDIS_PASSWORD:}
       lettuce:
         pool:
           max-active: 20
           max-idle: 30
           min-idle: 5
           max-wait: 10s
-  # 邮件（SMTP），所有环境均通过 .env 注入；未配置则验证码仅打印日志
+  # 邮件（SMTP），所有环境均通过 .env 注入；验证码永不写入日志
   mail:
     host: ${MAIL_HOST:smtp.zoho.com}
     port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:kod@kai.com}
-    password: ${MAIL_PASSWORD:_fki9dfO}  # QQ邮箱需要用授权码，不是登录密码
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
@@ -58,11 +70,68 @@ mybatis-plus:
 
 # 业务自定义配置
 kod:
+  knowledge-base:
+    enabled: ${KOD_KNOWLEDGE_BASE_ENABLED:true}
+    schema-init-enabled: ${KOD_KNOWLEDGE_BASE_SCHEMA_INIT_ENABLED:true}
+    max-file-bytes: ${KOD_KNOWLEDGE_BASE_MAX_FILE_BYTES:33554432}
+    max-extracted-characters: ${KOD_KNOWLEDGE_BASE_MAX_EXTRACTED_CHARACTERS:5000000}
+  cloud-sandbox:
+    enabled: ${KOD_CLOUD_SANDBOX_ENABLED:false}
+    schema-init-enabled: ${KOD_CLOUD_SANDBOX_SCHEMA_INIT_ENABLED:true}
+    worker-bootstrap-secret: ${KOD_WORKER_BOOTSTRAP_SECRET:}
+    worker-heartbeat-ttl-millis: ${KOD_WORKER_HEARTBEAT_TTL_MILLIS:60000}
+    recovery-interval-millis: ${KOD_WORKER_RECOVERY_INTERVAL_MILLIS:30000}
+    max-queued-operations-per-user: ${KOD_CLOUD_MAX_QUEUED_OPERATIONS:20}
+  storekit:
+    enabled: ${KOD_STOREKIT_ENABLED:false}
+    schema-init-enabled: ${KOD_STOREKIT_SCHEMA_INIT_ENABLED:true}
+    bundle-id: ${KOD_STOREKIT_BUNDLE_ID:com.kai.kod}
+    app-apple-id: ${KOD_STOREKIT_APP_APPLE_ID:}
+    allow-xcode-transactions: ${KOD_STOREKIT_ALLOW_XCODE_TRANSACTIONS:false}
+    root-certificate-paths: ${KOD_STOREKIT_ROOT_CERTIFICATE_PATHS:}
+    subscription-product-ids: ${KOD_STOREKIT_SUBSCRIPTION_PRODUCT_IDS:}
+    consumable-credits-spec: ${KOD_STOREKIT_CONSUMABLE_CREDITS:}
+    consumable-credits: {}
+  sync:
+    enabled: ${KOD_SYNC_ENABLED:true}
+    schema-init-enabled: ${KOD_SYNC_SCHEMA_INIT_ENABLED:true}
+    # Base64-encoded 32-byte KEK. No insecure default: model/provider secret sync stays disabled without it.
+    vault-master-key: ${KOD_SYNC_VAULT_MASTER_KEY:}
+  media-storage:
+    enabled: ${KOD_MEDIA_STORAGE_ENABLED:false}
+    schema-init-enabled: ${KOD_MEDIA_STORAGE_SCHEMA_INIT_ENABLED:true}
+    endpoint: ${KOD_MEDIA_STORAGE_ENDPOINT:}
+    region: ${KOD_MEDIA_STORAGE_REGION:us-east-1}
+    bucket: ${KOD_MEDIA_STORAGE_BUCKET:}
+    access-key: ${KOD_MEDIA_STORAGE_ACCESS_KEY:}
+    secret-key: ${KOD_MEDIA_STORAGE_SECRET_KEY:}
+    path-style-access: ${KOD_MEDIA_STORAGE_PATH_STYLE_ACCESS:false}
+    server-side-encryption: ${KOD_MEDIA_STORAGE_SERVER_SIDE_ENCRYPTION:AES256}
+    max-object-bytes: ${KOD_MEDIA_STORAGE_MAX_OBJECT_BYTES:134217728}
+    max-user-bytes: ${KOD_MEDIA_STORAGE_MAX_USER_BYTES:5368709120}
+    cleanup-interval-millis: ${KOD_MEDIA_STORAGE_CLEANUP_INTERVAL_MILLIS:300000}
+  identity:
+    enabled: ${KOD_IDENTITY_ENABLED:true}
+    # Public native-app client ID. This is an identifier, not a secret; deployments may override it.
+    client-id: ${KOD_IDENTITY_CLIENT_ID:OlpPQvTEyVkS4xf74mLT6OW5AI2jvh4r}
+    # Keep empty until the public iOS OIDC client is registered in KAI Identity.
+    ios-client-id: ${KOD_IDENTITY_IOS_CLIENT_ID:}
+    issuer: ${KOD_IDENTITY_ISSUER:https://auth.kai.com/api/auth}
+    authorization-endpoint: ${KOD_IDENTITY_AUTHORIZATION_ENDPOINT:https://auth.kai.com/api/auth/oauth2/authorize}
+    token-endpoint: ${KOD_IDENTITY_TOKEN_ENDPOINT:https://auth.kai.com/api/auth/oauth2/token}
+    user-info-uri: ${KOD_IDENTITY_USERINFO_URI:https://auth.kai.com/api/auth/oauth2/userinfo}
+    redirect-uri: ${KOD_IDENTITY_REDIRECT_URI:http://127.0.0.1:1456/auth/callback}
+    ios-redirect-uri: ${KOD_IDENTITY_IOS_REDIRECT_URI:https://kod.kai.com/auth/ios/callback}
+    scope: ${KOD_IDENTITY_SCOPE:openid profile email}
+    schema-init-enabled: ${KOD_IDENTITY_SCHEMA_INIT_ENABLED:true}
+
   jwt:
     # HS256 密钥（生产环境务必通过环境变量覆盖，长度需 >= 32 字节）
-    secret: ${JWT_SECRET:kod-portal-default-jwt-secret-please-change-in-prod}
+    secret: ${JWT_SECRET:}
     # token 有效期（毫秒），默认 7 天
     expire-millis: ${JWT_EXPIRE_MILLIS:604800000}
+    # refresh token 有效期（毫秒），默认 30 天；每次刷新都会轮换
+    refresh-expire-millis: ${JWT_REFRESH_EXPIRE_MILLIS:2592000000}
 
   compute:
     # 逗号分隔。生产环境通过 KOD_COMPUTE_ADMIN_EMAILS 注入，不在源码中写死个人邮箱。
@@ -82,10 +151,20 @@ kod:
     demo-buyer-email: ${KOD_COMPUTE_DEMO_BUYER_EMAIL:}
     # 用户购买 Token 套餐后对外交付的 KOD 代理地址；生产环境必须配置为公网 HTTPS 地址。
     proxy-base-url: ${KOD_COMPUTE_PROXY_BASE_URL:http://127.0.0.1:8080/api/compute/proxy/v1}
+    # 第三方 GPU 行情。Vast 密钥只能通过环境变量注入，禁止提交到 Git。
+    market-price-enabled: ${KOD_MARKET_PRICE_ENABLED:true}
+    vast-api-key: ${VAST_API_KEY:}
+    vast-search-url: ${VAST_SEARCH_URL:https://console.vast.ai/api/v0/bundles/}
+    akamai-product-url: ${AKAMAI_GPU_PRODUCT_URL:https://www.akamai.com/zh/products/gpu/nvidia}
+    akamai-types-url: ${AKAMAI_GPU_TYPES_URL:https://api.linode.com/v4/linode/types?page_size=500}
+    usd-cny-rate: ${KOD_USD_CNY_RATE:7.2000}
+    market-price-refresh-millis: ${KOD_MARKET_PRICE_REFRESH_MILLIS:5000}
+    market-price-history-sample-millis: ${KOD_MARKET_PRICE_HISTORY_SAMPLE_MILLIS:60000}
+    market-price-history-retention-days: ${KOD_MARKET_PRICE_HISTORY_RETENTION_DAYS:30}
 
 # 支付配置（在 kod 层级内）
   payment:
-    epay-enabled: ${EPAY_ENABLED:true}
+    epay-enabled: ${EPAY_ENABLED:false}
     stripe-enabled: ${STRIPE_ENABLED:false}
     creem-enabled: ${CREEM_ENABLED:false}
     waffo-enabled: ${WAFFO_ENABLED:false}
@@ -95,10 +174,10 @@ kod:
     waffo-min-topup: ${WAFFO_MIN_TOPUP:1}
     waffo-pancake-min-topup: ${WAFFO_PANCAKE_MIN_TOPUP:1}
     amount-options: ${AMOUNT_OPTIONS:1,5,10,20,50,100}
-    compliance-confirmed: ${PAYMENT_COMPLIANCE_CONFIRMED:true}
+    compliance-confirmed: ${PAYMENT_COMPLIANCE_CONFIRMED:false}
     compliance-terms-version: ${PAYMENT_COMPLIANCE_TERMS_VERSION:v1}
-    epay-pid: ${EPAY_PID:12457}
-    epay-key: ${EPAY_KEY:nYV1gg5K9CBeITJYzrGB}
+    epay-pid: ${EPAY_PID:}
+    epay-key: ${EPAY_KEY:}
     epay-api-url: ${EPAY_API_URL:https://mzf.mapay.cc/xpay/epay/submit.php}
     epay-mapi-url: ${EPAY_MAPI_URL:https://mzf.mapay.cc/xpay/epay/mapi.php}
     epay-notify-url: ${EPAY_NOTIFY_URL:https://kod.kai.com/api/payment/epay/notify}

@@ -1,0 +1,9 @@
+{
+  "version": "0.1.0",
+  "versionCode": 1,
+  "apkUrl": "https://github.com/wangtengwatt/KOD/releases/download/android-v0.1.0/KOD-Android-v0.1.0-universal.apk",
+  "sha256": "DBFF7BC8D319555CCD71034AE494D127E2C519462F4FCFF72C38962F35F122A0",
+  "minSdk": 26,
+  "publishedAt": "2026-08-15T14:23:55+08:00",
+  "notes": "首个正式签名的 KOD Android 版本，包含对话、生图、视频、算力中心、人民币钱包、零售站与节点切换及蒜宝能力。"
+}

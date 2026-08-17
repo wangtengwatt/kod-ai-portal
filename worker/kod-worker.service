@@ -1,0 +1,22 @@
+[Unit]
+Description=KOD isolated cloud sandbox worker
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=kod-worker
+Group=docker
+WorkingDirectory=/opt/kod-worker
+EnvironmentFile=/etc/kod-worker.env
+ExecStart=/usr/bin/python3 /opt/kod-worker/kod_worker.py run
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/kod-worker
+
+[Install]
+WantedBy=multi-user.target

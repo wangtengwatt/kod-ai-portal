@@ -1,5 +1,5 @@
 # 本地开发环境
-# 数据源与 Redis 沿用 application.yml 的默认值（远程 dev 库），如需本地库用环境变量覆盖：
+# 数据源与 Redis 沿用 application.yml 的 loopback 默认值，如需其他本地实例用环境变量覆盖：
 #   MYSQL_HOST / MYSQL_PORT / MYSQL_DATABASE / MYSQL_USERNAME / MYSQL_PASSWORD
 #   REDIS_HOST / REDIS_PORT / REDIS_PASSWORD
 logging:

@@ -22,6 +22,11 @@ public class BizException extends RuntimeException {
         this.code = code;
     }
 
+    public BizException(int code, String message, Throwable cause) {
+        super(message, cause);
+        this.code = code;
+    }
+
     /**
      * 使用默认错误码（400）构造。
      *

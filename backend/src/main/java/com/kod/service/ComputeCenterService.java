@@ -66,6 +66,7 @@ public class ComputeCenterService {
         Map<String, Object> result = new HashMap<>();
         result.put("cardHourCnyRate", settingDecimal("card_hour_cny_rate", properties.getDefaultCardHourCnyRate()));
         result.put("cardHourRedeemRate", settingDecimal("card_hour_redeem_rate", BigDecimal.ONE));
+        result.put("usdCnyRate", settingDecimal("usd_cny_rate", properties.getDefaultUsdCnyRate()));
         result.put("unitName", "KAI 标准卡时");
         result.put("currency", "CNY");
         return result;
@@ -264,6 +265,7 @@ public class ComputeCenterService {
                         SELECT COALESCE(SUM(remaining_amount-frozen_amount), 0)
                         FROM compute_card_hour_lot
                         WHERE owner_user_id=? AND remaining_amount>frozen_amount
+                          AND asset_type='STANDARD' AND custody_status='ACTIVE'
                           AND (expires_at IS NULL OR expires_at>?)
                         """, BigDecimal.class, userId, timestamp(validUntil)), 3);
         if (available.compareTo(required) >= 0) return;
@@ -351,7 +353,12 @@ public class ComputeCenterService {
         return jdbc.queryForList("""
                 SELECT o.id, o.order_no AS orderNo, o.order_type AS orderType, o.product_id AS productId,
                        o.card_hours AS cardHours, o.cny_amount AS cnyAmount, o.status,
-                       o.create_time AS createTime, p.name AS productName
+                       o.create_time AS createTime, p.name AS productName,
+                       COALESCE(
+                           CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(o.snapshot_json, '$.coverImageId')), 'null') AS UNSIGNED),
+                           (SELECT i.id FROM compute_product_image i
+                            WHERE i.product_id=o.product_id ORDER BY i.sort_order,i.id LIMIT 1)
+                       ) AS coverImageId
                 FROM compute_order o LEFT JOIN compute_product p ON p.id = o.product_id
                 WHERE o.user_id = ? ORDER BY o.id DESC LIMIT 200
                 """, userId);
@@ -712,8 +719,10 @@ public class ComputeCenterService {
         jdbc.update("""
                 INSERT INTO compute_order(order_no,user_id,order_type,product_id,card_hours,status,snapshot_json)
                 VALUES (?,?,'GPU_MARKETPLACE',?,?,'FROZEN',
-                    JSON_OBJECT('tradeMode','MARKETPLACE_FIXED','durationHours',?,'deliveryDeadlineHours',?))
-                """, orderNo, userId, productId, frozen, durationHours, deadlineHours);
+                    JSON_OBJECT('tradeMode','MARKETPLACE_FIXED','durationHours',?,'deliveryDeadlineHours',?,
+                                'coverImageId',?))
+                """, orderNo, userId, productId, frozen, durationHours, deadlineHours,
+                longOrNull(product.get("coverImageId")));
         Long orderId = lastInsertId();
         LocalDateTime placeholderStart = LocalDateTime.now();
         jdbc.update("""
@@ -864,8 +873,10 @@ public class ComputeCenterService {
         String orderNo = "GPU" + UUID.randomUUID().toString().replace("-", "").substring(0, 21).toUpperCase(Locale.ROOT);
         jdbc.update("""
                 INSERT INTO compute_order(order_no, user_id, order_type, product_id, card_hours, status, snapshot_json)
-                VALUES (?, ?, 'GPU_RESERVATION', ?, ?, 'FROZEN', JSON_OBJECT('unitRate', ?, 'gpuCount', ?))
-                """, orderNo, userId, productId, frozen, rate.toPlainString(), gpuCount);
+                VALUES (?, ?, 'GPU_RESERVATION', ?, ?, 'FROZEN',
+                        JSON_OBJECT('unitRate', ?, 'gpuCount', ?, 'coverImageId', ?))
+                """, orderNo, userId, productId, frozen, rate.toPlainString(), gpuCount,
+                longOrNull(product.get("coverImageId")));
         Long orderId = lastInsertId();
         jdbc.update("""
                 INSERT INTO compute_reservation(
@@ -954,8 +965,14 @@ public class ComputeCenterService {
                        r.resolution_type AS resolutionType, r.resolution_card_hours AS resolutionCardHours,
                        r.delivery_ciphertext AS deliveryCiphertext, r.delivered_at AS deliveredAt,
                        r.create_time AS createTime, p.name AS productName, p.gpu_model AS gpuModel,
+                       COALESCE(
+                           CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(o.snapshot_json, '$.coverImageId')), 'null') AS UNSIGNED),
+                           (SELECT i.id FROM compute_product_image i
+                            WHERE i.product_id=r.product_id ORDER BY i.sort_order,i.id LIMIT 1)
+                       ) AS coverImageId,
                         buyer.email AS buyerEmail, supplier.email AS supplierEmail
                 FROM compute_reservation r
+                JOIN compute_order o ON o.id = r.order_id
                 JOIN compute_product p ON p.id = r.product_id
                 JOIN sys_user buyer ON buyer.id = r.buyer_user_id
                 LEFT JOIN sys_user supplier ON supplier.id=r.supplier_user_id
@@ -983,8 +1000,15 @@ public class ComputeCenterService {
                        r.resolution_type AS resolutionType, r.resolution_card_hours AS resolutionCardHours,
                         r.delivery_ciphertext AS deliveryCiphertext, r.delivered_at AS deliveredAt,
                         r.create_time AS createTime, p.name AS productName, p.gpu_model AS gpuModel,
+                        COALESCE(
+                            CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(o.snapshot_json, '$.coverImageId')), 'null') AS UNSIGNED),
+                            (SELECT i.id FROM compute_product_image i
+                             WHERE i.product_id=r.product_id ORDER BY i.sort_order,i.id LIMIT 1)
+                        ) AS coverImageId,
                         buyer.email AS buyerEmail, supplier.email AS supplierEmail
-                FROM compute_reservation r JOIN compute_product p ON p.id=r.product_id
+                FROM compute_reservation r
+                JOIN compute_order o ON o.id=r.order_id
+                JOIN compute_product p ON p.id=r.product_id
                 JOIN sys_user buyer ON buyer.id=r.buyer_user_id
                 LEFT JOIN sys_user supplier ON supplier.id=r.supplier_user_id WHERE r.id=?
                 """, reservationId);
@@ -1142,22 +1166,26 @@ public class ComputeCenterService {
         result.put("transferReviewThreshold", settingDecimal("transfer_review_threshold",
                 properties.getDefaultTransferReviewThreshold()));
         result.put("platformFeeRate", settingDecimal("platform_fee_rate", BigDecimal.ZERO));
+        result.put("usdCnyRate", settingDecimal("usd_cny_rate", properties.getDefaultUsdCnyRate()));
         return result;
     }
 
     @Transactional
     public Map<String, Object> updateAdminSettings(Long adminUserId, BigDecimal rawTransferThreshold,
-                                                    BigDecimal rawPlatformFeeRate) {
+                                                    BigDecimal rawPlatformFeeRate, BigDecimal rawUsdCnyRate) {
         requireAdmin(adminUserId);
         BigDecimal transferThreshold = positiveScale3(rawTransferThreshold, "大额转让审核阈值必须大于 0");
         if (rawPlatformFeeRate == null || rawPlatformFeeRate.compareTo(BigDecimal.ZERO) != 0) {
             throw new BizException(400, "第一版不收平台佣金，服务费必须为 0");
         }
         BigDecimal platformFeeRate = BigDecimal.ZERO.setScale(6, RoundingMode.UNNECESSARY);
+        BigDecimal usdCnyRate = positiveScale(rawUsdCnyRate, 4, "美元兑人民币汇率必须大于 0");
         upsertSetting("transfer_review_threshold", transferThreshold.toPlainString(), adminUserId);
         upsertSetting("platform_fee_rate", platformFeeRate.toPlainString(), adminUserId);
+        upsertSetting("usd_cny_rate", usdCnyRate.toPlainString(), adminUserId);
         audit(adminUserId, "UPDATE_COMPUTE_SETTINGS", "SETTING", "compute",
-                "transferThreshold=" + transferThreshold + ",platformFeeRate=" + platformFeeRate);
+                "transferThreshold=" + transferThreshold + ",platformFeeRate=" + platformFeeRate
+                        + ",usdCnyRate=" + usdCnyRate);
         return adminOverview(adminUserId);
     }
 
@@ -1297,8 +1325,15 @@ public class ComputeCenterService {
                        r.incident_reason AS incidentReason, r.resolution_type AS resolutionType,
                        r.resolution_card_hours AS resolutionCardHours, r.create_time AS createTime,
                        p.name AS productName, p.gpu_model AS gpuModel, p.node_id AS nodeId,
+                       COALESCE(
+                           CAST(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(o.snapshot_json, '$.coverImageId')), 'null') AS UNSIGNED),
+                           (SELECT i.id FROM compute_product_image i
+                            WHERE i.product_id=r.product_id ORDER BY i.sort_order,i.id LIMIT 1)
+                       ) AS coverImageId,
                        n.node_name AS nodeName, n.status AS nodeStatus
-                FROM compute_reservation r JOIN compute_product p ON p.id=r.product_id
+                FROM compute_reservation r
+                JOIN compute_order o ON o.id=r.order_id
+                JOIN compute_product p ON p.id=r.product_id
                 JOIN sys_user buyer ON buyer.id=r.buyer_user_id
                 LEFT JOIN sys_user supplier ON supplier.id=r.supplier_user_id
                 LEFT JOIN compute_gpu_node n ON n.id=p.node_id
@@ -1528,6 +1563,9 @@ public class ComputeCenterService {
                        remaining_amount - frozen_amount AS expirable
                 FROM compute_card_hour_lot
                 WHERE expires_at <= NOW() AND remaining_amount > frozen_amount
+                  AND asset_type='STANDARD'
+                  AND source_type NOT IN ('GPU_DEPOSIT','CARD_MARKET_SALE','CARD_MARKET_TRANSFER',
+                      'SPECIFIC_EXPIRY_CONVERSION','STANDARD_ROLLOVER')
                 ORDER BY id LIMIT 200 FOR UPDATE SKIP LOCKED
                 """);
         for (Map<String, Object> lot : lots) {
@@ -1593,6 +1631,7 @@ public class ComputeCenterService {
                 SELECT id, remaining_amount AS remainingAmount, frozen_amount AS frozenAmount
                 FROM compute_card_hour_lot
                 WHERE owner_user_id=? AND remaining_amount>frozen_amount
+                  AND asset_type='STANDARD' AND custody_status='ACTIVE'
                   AND (expires_at IS NULL OR expires_at>NOW())
                 ORDER BY CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END, expires_at, id
                 FOR UPDATE
@@ -1637,6 +1676,7 @@ public class ComputeCenterService {
                 SELECT id, remaining_amount AS remainingAmount, frozen_amount AS frozenAmount
                 FROM compute_card_hour_lot
                 WHERE owner_user_id=? AND remaining_amount>frozen_amount
+                  AND asset_type='STANDARD' AND custody_status='ACTIVE'
                   AND (expires_at IS NULL OR expires_at>NOW())
                 ORDER BY CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END, expires_at, id
                 FOR UPDATE
@@ -1676,6 +1716,7 @@ public class ComputeCenterService {
                        expires_at AS expiresAt
                 FROM compute_card_hour_lot
                 WHERE owner_user_id=? AND remaining_amount>frozen_amount
+                  AND asset_type='STANDARD' AND custody_status='ACTIVE'
                   AND (expires_at IS NULL OR expires_at>?)
                 ORDER BY CASE WHEN expires_at IS NULL THEN 1 ELSE 0 END, expires_at, id
                 FOR UPDATE
@@ -2105,6 +2146,11 @@ public class ComputeCenterService {
     private static BigDecimal positiveScale3(BigDecimal raw, String message) {
         if (raw == null || raw.compareTo(BigDecimal.ZERO) <= 0) throw new BizException(400, message);
         return scale3(raw);
+    }
+
+    private static BigDecimal positiveScale(BigDecimal raw, int scale, String message) {
+        if (raw == null || raw.compareTo(BigDecimal.ZERO) <= 0) throw new BizException(400, message);
+        return raw.setScale(scale, RoundingMode.HALF_UP);
     }
 
     private static BigDecimal scale3(BigDecimal value) {

@@ -26,3 +26,7 @@ target/
 backend/target/
 !.mvn/wrapper/maven-wrapper.jar
 *.class
+
+# ===== Python Worker =====
+__pycache__/
+*.py[cod]

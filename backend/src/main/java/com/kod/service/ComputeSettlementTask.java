@@ -14,12 +14,14 @@ public class ComputeSettlementTask {
     private final ComputeCenterService computeCenterService;
     private final ComputeTrustService computeTrustService;
     private final ComputeReferralService referralService;
+    private final ComputeCardHourMarketService cardHourMarketService;
 
     @Scheduled(fixedDelay = 30_000, initialDelay = 120_000)
     public void advance() {
         if (!computeCenterService.isSchemaAvailable()) return;
         try {
             computeCenterService.advanceScheduledWork();
+            cardHourMarketService.advanceScheduledWork();
             referralService.releaseDueRewards();
             computeTrustService.purgeExpiredIdentityDocuments();
         } catch (Exception e) {

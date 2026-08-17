@@ -8,6 +8,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
@@ -22,6 +23,7 @@ import java.util.Date;
 public class JwtUtil {
 
     private final JwtProperties props;
+    private final JdbcTemplate jdbc;
 
     /** 签名密钥，由配置的 secret 派生。 */
     private SecretKey key;
@@ -65,7 +67,13 @@ public class JwtUtil {
                     .parseSignedClaims(token)
                     .getPayload()
                     .getSubject();
-            return Long.valueOf(subject);
+            Long userId = Long.valueOf(subject);
+            Integer deleted = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM kod_account_deletion_receipt WHERE user_id=?", Integer.class, userId);
+            if (deleted != null && deleted > 0) throw new BizException(401, "账户已删除");
+            return userId;
+        } catch (BizException e) {
+            throw e;
         } catch (Exception e) {
             log.warn("token 解析失败：{}", e.getMessage());
             throw new BizException(401, "token 无效或已过期");

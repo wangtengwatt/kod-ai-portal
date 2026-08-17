@@ -33,6 +33,17 @@ public class ComputeSchemaInitializer implements ApplicationRunner {
         populator.execute(dataSource);
         // CREATE TABLE IF NOT EXISTS 不会为早期 MVP 表补列；逐列探测可保留所有旧数据。
         ensureColumn("compute_product", "node_id", "BIGINT NULL AFTER supplier_user_id");
+        ensureColumn("compute_card_hour_lot", "asset_type", "VARCHAR(16) NOT NULL DEFAULT 'STANDARD' AFTER owner_user_id");
+        ensureColumn("compute_card_hour_lot", "gpu_model", "VARCHAR(128) NULL AFTER asset_type");
+        ensureColumn("compute_card_hour_lot", "issuer_user_id", "BIGINT NULL AFTER gpu_model");
+        ensureColumn("compute_card_hour_lot", "node_id", "BIGINT NULL AFTER issuer_user_id");
+        ensureColumn("compute_card_hour_lot", "rate_version", "VARCHAR(32) NULL AFTER node_id");
+        ensureColumn("compute_card_hour_lot", "rate_multiplier", "DECIMAL(12,4) NULL AFTER rate_version");
+        ensureColumn("compute_card_hour_lot", "custody_status", "VARCHAR(24) NOT NULL DEFAULT 'ACTIVE' AFTER rate_multiplier");
+        ensureColumn("compute_card_hour_lot", "custody_fee_accrued", "DECIMAL(20,3) NOT NULL DEFAULT 0.000 AFTER custody_status");
+        ensureColumn("compute_card_hour_lot", "parent_lot_id", "BIGINT NULL AFTER custody_fee_accrued");
+        ensureColumn("compute_card_hour_redemption", "buyer_public_key", "MEDIUMTEXT NULL AFTER end_time");
+        ensureColumn("compute_card_hour_redemption", "stop_reminded_at", "DATETIME NULL AFTER delivered_at");
         ensureColumn("compute_product", "package_prompt_tokens", "BIGINT NULL AFTER completion_rate_per_million");
         ensureColumn("compute_product", "package_completion_tokens", "BIGINT NULL AFTER package_prompt_tokens");
         ensureColumn("compute_product", "package_price_card_hours", "DECIMAL(20,3) NULL AFTER package_completion_tokens");
@@ -72,6 +83,9 @@ public class ComputeSchemaInitializer implements ApplicationRunner {
                 "CREATE UNIQUE INDEX uk_compute_api_package_access_key ON compute_api_package_purchase(access_key_hash)");
         ensureIndex("compute_reservation", "idx_compute_reservation_marketplace",
                 "CREATE INDEX idx_compute_reservation_marketplace ON compute_reservation(trade_mode,status,delivery_deadline_at,auto_confirm_at)");
+        ensureIndex("compute_card_hour_lot", "idx_compute_lot_asset",
+                "CREATE INDEX idx_compute_lot_asset ON compute_card_hour_lot(owner_user_id,asset_type,gpu_model,custody_status,expires_at)");
+        migrateLegacyCardHourLots();
         migrateNodeStatuses();
         repairLegacySelfReviews();
         // 早期版本把购买、发放、转入都计成了“收益”；收益只应来自供应方销售结算。
@@ -88,6 +102,25 @@ public class ComputeSchemaInitializer implements ApplicationRunner {
             throw new IllegalStateException("算力中心收益口径修正失败", e);
         }
         log.info("本机算力中心 compute_* 表初始化完成");
+    }
+
+    private void migrateLegacyCardHourLots() {
+        try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
+            statement.executeUpdate("UPDATE compute_card_hour_lot SET asset_type='STANDARD' WHERE asset_type IS NULL OR asset_type=''");
+            statement.executeUpdate("UPDATE compute_card_hour_lot SET custody_status='ACTIVE' WHERE custody_status IS NULL OR custody_status=''");
+            statement.executeUpdate("""
+                    INSERT INTO compute_card_hour_lot(owner_user_id,asset_type,source_type,source_ref,
+                        original_amount,remaining_amount,frozen_amount,custody_status,expires_at)
+                    SELECT a.user_id,'STANDARD','LEGACY_MIGRATION','旧版资产迁移',
+                        a.available_card_hours+a.frozen_card_hours,
+                        a.available_card_hours+a.frozen_card_hours,a.frozen_card_hours,'ACTIVE',NULL
+                    FROM compute_account a
+                    WHERE a.available_card_hours+a.frozen_card_hours>0
+                      AND NOT EXISTS(SELECT 1 FROM compute_card_hour_lot l WHERE l.owner_user_id=a.user_id)
+                    """);
+        } catch (Exception e) {
+            throw new IllegalStateException("算力中心历史卡时批次迁移失败", e);
+        }
     }
 
     private void migrateNodeStatuses() {

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.kod.common.BizException;
 import com.kod.dto.LoginRequest;
 import com.kod.dto.LoginResponse;
+import com.kod.dto.TokenRefreshResponse;
 import com.kod.entity.RelayStation;
 import com.kod.entity.User;
 import com.kod.config.JwtProperties;
@@ -17,9 +18,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.util.Base64;
+import java.util.HexFormat;
 import java.time.LocalDateTime;
+import java.util.Locale;
+import java.util.UUID;
 
 /**
  * 认证服务：登录 / 注册（首次登录即注册）/ 邮箱验证码。
@@ -30,6 +39,7 @@ import java.time.LocalDateTime;
 public class AuthService {
 
     private static final String TOKEN_KEY_PREFIX = "kod:token:";
+    private static final String REFRESH_TOKEN_KEY_PREFIX = "kod:refresh:";
     private static final String CODE_KEY_PREFIX = "kod:code:";
     private static final Duration CODE_TTL = Duration.ofMinutes(5);
     private static final Duration CODE_RATE_LIMIT = Duration.ofSeconds(60);
@@ -58,13 +68,13 @@ public class AuthService {
         String code = String.format("%06d", RANDOM.nextInt(1_000_000));
         String codeKey = CODE_KEY_PREFIX + email;
 
+        // Only persist and rate-limit a code after delivery succeeds. Otherwise
+        // the user is locked out for a code that can never be received.
+        emailService.sendCode(email, code);
         stringRedisTemplate.opsForValue().set(codeKey, code, CODE_TTL);
         stringRedisTemplate.opsForValue().set(rateKey, "1", CODE_RATE_LIMIT);
 
-        // 发送邮件（尽力而为，失败不影响验证码存储）
-        emailService.sendCode(email, code);
-
-        log.info("验证码已生成，email={}, code={}, 有效期=5min", email, code);
+        log.info("验证码已发送，email={}, 有效期=5min", email);
     }
 
     /**
@@ -116,7 +126,7 @@ public class AuthService {
             userMapper.insert(user);
             log.info("注册成功，userId={}, 关联 stationId={}", user.getId(), station.getId());
 
-            return new LoginResponse(issueToken(user.getId()), true, null);
+            return issueLoginResponse(user.getId(), true);
         }
 
         // 已存在用户：校验密码
@@ -125,7 +135,28 @@ public class AuthService {
             throw new BizException(401, "邮箱或密码错误");
         }
         log.info("登录成功，userId={}", user.getId());
-        return new LoginResponse(issueToken(user.getId()), false, null);
+        return issueLoginResponse(user.getId(), false);
+    }
+
+    /**
+     * Creates a KOD account after a trusted identity provider has verified ownership of the email.
+     * The generated password is deliberately unknown to the user, so this does not silently enable
+     * password login or bypass the normal email-code/invitation registration flow.
+     */
+    public User provisionIdentityUser(String email) {
+        if (!StringUtils.hasText(email)) {
+            throw new BizException(400, "KAI Identity did not return a valid email address");
+        }
+
+        User user = new User();
+        user.setEmail(email.trim().toLowerCase(Locale.ROOT));
+        user.setPassword(passwordEncoder.encode("identity-only:" + UUID.randomUUID()));
+        user.setBalance(BigDecimal.ZERO);
+        user.setHistoricalConsumption(BigDecimal.ZERO);
+        user.setCreateTime(LocalDateTime.now());
+        userMapper.insert(user);
+        log.info("Provisioned KOD account from verified KAI Identity email, userId={}", user.getId());
+        return user;
     }
 
     private String issueToken(Long userId) {
@@ -139,5 +170,62 @@ public class AuthService {
             log.warn("写入 Redis token 失败（不影响登录）：{}", e.getMessage());
         }
         return token;
+    }
+
+    private LoginResponse issueLoginResponse(Long userId, boolean newUser) {
+        return new LoginResponse(issueToken(userId), issueRefreshTokenForUser(userId), newUser, null);
+    }
+
+    /** Issues a random, server-side refresh token distinct from the signed access JWT. */
+    public String issueRefreshTokenForUser(Long userId) {
+        byte[] bytes = new byte[48];
+        RANDOM.nextBytes(bytes);
+        String rawToken = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        stringRedisTemplate.opsForValue().set(
+                REFRESH_TOKEN_KEY_PREFIX + hashRefreshToken(rawToken),
+                String.valueOf(userId),
+                Duration.ofMillis(jwtProperties.getRefreshExpireMillis()));
+        return rawToken;
+    }
+
+    /** Consumes and rotates a refresh token so replayed old tokens cannot mint new sessions. */
+    public TokenRefreshResponse refreshSession(String refreshToken) {
+        if (!StringUtils.hasText(refreshToken)) {
+            throw new BizException(401, "refresh token 缺失");
+        }
+        String key = REFRESH_TOKEN_KEY_PREFIX + hashRefreshToken(refreshToken);
+        String userIdValue = stringRedisTemplate.opsForValue().getAndDelete(key);
+        if (!StringUtils.hasText(userIdValue)) {
+            throw new BizException(401, "refresh token 无效或已过期");
+        }
+
+        Long userId;
+        try {
+            userId = Long.valueOf(userIdValue);
+        } catch (NumberFormatException e) {
+            throw new BizException(401, "refresh token 无效");
+        }
+        if (userMapper.selectById(userId) == null) {
+            throw new BizException(401, "KOD 用户不存在");
+        }
+        return new TokenRefreshResponse(issueToken(userId), issueRefreshTokenForUser(userId));
+    }
+
+    private String hashRefreshToken(String rawToken) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(rawToken.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
+        }
+    }
+
+    /** Issues the normal KOD session after an external identity has been verified and linked. */
+    public String issueTokenForUser(Long userId) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BizException(401, "KOD 用户不存在");
+        }
+        return issueToken(userId);
     }
 }

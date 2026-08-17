@@ -18,8 +18,13 @@ CREATE TABLE IF NOT EXISTS compute_setting (
 INSERT IGNORE INTO compute_setting(setting_key, setting_value, description) VALUES
     ('card_hour_cny_rate', '1.002', '1 KAI 标准卡时对应人民币金额'),
     ('card_hour_redeem_rate', '1.0000', '1 卡时兑换到 KOD 人民币钱包的固定金额'),
+    ('usd_cny_rate', '7.2000', '第三方 GPU 行情美元兑人民币估算汇率'),
     ('transfer_review_threshold', '1000.000', '转让达到该卡时数量时需要管理员审核'),
-    ('platform_fee_rate', '0', '平台服务费比例，内部 MVP 默认 0');
+    ('platform_fee_rate', '0', '平台服务费比例，内部 MVP 默认 0'),
+    ('card_hour_trade_fee', '0.002', '卡时销售与转让每笔固定服务费，买卖双方各承担一半'),
+    ('card_hour_quote_minutes', '30', '卡时商品下单报价与询价报价固定锁定分钟数'),
+    ('card_hour_min_valid_days', '7', '卡时商品或批次上架时最低剩余有效天数'),
+    ('custody_fee_enabled', '0', '卡时托管费试运行，仅记账展示不实际扣费');
 
 CREATE TABLE IF NOT EXISTS compute_account (
     user_id                 BIGINT         NOT NULL,
@@ -48,6 +53,223 @@ CREATE TABLE IF NOT EXISTS compute_card_hour_lot (
     INDEX idx_compute_lot_owner_expiry (owner_user_id, expires_at),
     INDEX idx_compute_lot_source (source_type, source_ref)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='可追踪有效期的卡时批次';
+
+CREATE TABLE IF NOT EXISTS compute_card_hour_rate_rule (
+    id                  BIGINT         NOT NULL AUTO_INCREMENT,
+    version_no          VARCHAR(32)    NOT NULL,
+    gpu_model           VARCHAR(128)   NOT NULL,
+    multiplier          DECIMAL(12,4)  NOT NULL,
+    status              VARCHAR(16)    NOT NULL DEFAULT 'ACTIVE',
+    effective_from      DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by          BIGINT         NULL,
+    notes               VARCHAR(512)   NOT NULL DEFAULT '',
+    create_time         DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_compute_rate_version_model (version_no, gpu_model),
+    INDEX idx_compute_rate_active (gpu_model, status, effective_from)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='GPU 与标准卡时的版本化折算倍率';
+
+INSERT IGNORE INTO compute_card_hour_rate_rule(version_no,gpu_model,multiplier,status,notes) VALUES
+    ('V1','H100 80GB',1.0000,'ACTIVE','H100 80GB 基准'),
+    ('V1','H100',1.0000,'ACTIVE','H100 型号别名'),
+    ('V1','H200',1.2500,'ACTIVE','首版运营倍率'),
+    ('V1','H800',0.8500,'ACTIVE','首版运营倍率'),
+    ('V1','A100 80GB',0.5500,'ACTIVE','首版运营倍率'),
+    ('V1','A100',0.5500,'ACTIVE','A100 型号别名'),
+    ('V1','L40S',0.3000,'ACTIVE','首版运营倍率'),
+    ('V1','RTX 4090',0.2000,'ACTIVE','首版运营倍率');
+
+CREATE TABLE IF NOT EXISTS compute_card_hour_deposit (
+    id                      BIGINT         NOT NULL AUTO_INCREMENT,
+    deposit_no              VARCHAR(64)    NOT NULL,
+    supplier_user_id        BIGINT         NOT NULL,
+    node_id                 BIGINT         NOT NULL,
+    gpu_model               VARCHAR(128)   NOT NULL,
+    gpu_count               INT            NOT NULL,
+    available_from          DATETIME       NOT NULL,
+    available_to            DATETIME       NOT NULL,
+    expires_at              DATETIME       NOT NULL,
+    gpu_hours               DECIMAL(20,3)  NOT NULL,
+    rate_version            VARCHAR(32)    NOT NULL,
+    rate_multiplier         DECIMAL(12,4)  NOT NULL,
+    standard_card_hours     DECIMAL(20,3)  NOT NULL,
+    status                  VARCHAR(24)    NOT NULL DEFAULT 'PENDING',
+    lot_id                  BIGINT         NULL,
+    rejection_reason        VARCHAR(512)   NOT NULL DEFAULT '',
+    reviewed_by             BIGINT         NULL,
+    reviewed_at             DATETIME       NULL,
+    create_time             DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time             DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_compute_deposit_no (deposit_no),
+    INDEX idx_compute_deposit_supplier (supplier_user_id, status, create_time),
+    INDEX idx_compute_deposit_node_slot (node_id, status, available_from, available_to)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='验收后按 GPU 型号和时长自动折算入账的卡时存入申请';
+
+CREATE TABLE IF NOT EXISTS compute_card_hour_listing (
+    id                      BIGINT         NOT NULL AUTO_INCREMENT,
+    listing_no              VARCHAR(64)    NOT NULL,
+    seller_user_id          BIGINT         NOT NULL,
+    market_type             VARCHAR(24)    NOT NULL,
+    asset_type              VARCHAR(16)    NOT NULL,
+    gpu_model               VARCHAR(128)   NULL,
+    node_id                 BIGINT         NULL,
+    source_lot_id           BIGINT         NOT NULL,
+    quantity                DECIMAL(20,3)  NOT NULL,
+    unit_price              DECIMAL(20,4)  NOT NULL,
+    price_currency          VARCHAR(16)    NOT NULL,
+    collateral_card_hours   DECIMAL(20,3)  NOT NULL,
+    asset_expires_at        DATETIME       NOT NULL,
+    listing_expires_at      DATETIME       NULL,
+    rate_version            VARCHAR(32)    NULL,
+    rate_multiplier         DECIMAL(12,4)  NULL,
+    title                   VARCHAR(256)   NOT NULL,
+    description             VARCHAR(1000)  NOT NULL DEFAULT '',
+    status                  VARCHAR(24)    NOT NULL DEFAULT 'PUBLISHED',
+    create_time             DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time             DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_compute_listing_no (listing_no),
+    INDEX idx_compute_listing_market (status, market_type, asset_type, gpu_model, create_time),
+    INDEX idx_compute_listing_seller (seller_user_id, status, create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='供应方卡时销售与用户闲置卡时受限转让挂单';
+
+CREATE TABLE IF NOT EXISTS compute_card_hour_purchase_quote (
+    id                      BIGINT         NOT NULL AUTO_INCREMENT,
+    quote_no                VARCHAR(64)    NOT NULL,
+    listing_id              BIGINT         NOT NULL,
+    buyer_user_id           BIGINT         NOT NULL,
+    quantity                DECIMAL(20,3)  NOT NULL,
+    unit_price_snapshot     DECIMAL(20,4)  NOT NULL,
+    price_currency          VARCHAR(16)    NOT NULL,
+    total_price             DECIMAL(20,4)  NOT NULL,
+    cny_rate_snapshot       DECIMAL(12,4)  NOT NULL,
+    buyer_fee_card_hours    DECIMAL(20,3)  NOT NULL DEFAULT 0.001,
+    seller_fee_card_hours   DECIMAL(20,3)  NOT NULL DEFAULT 0.001,
+    asset_expires_at        DATETIME       NOT NULL,
+    status                  VARCHAR(24)    NOT NULL DEFAULT 'LOCKED',
+    expires_at              DATETIME       NOT NULL,
+    confirmed_at            DATETIME       NULL,
+    create_time             DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_compute_purchase_quote_no (quote_no),
+    INDEX idx_compute_purchase_quote_buyer (buyer_user_id, status, create_time),
+    INDEX idx_compute_purchase_quote_expiry (status, expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='下单前锁定 30 分钟的卡时商品价格、汇率、有效期和服务费';
+
+CREATE TABLE IF NOT EXISTS compute_card_hour_trade (
+    id                      BIGINT         NOT NULL AUTO_INCREMENT,
+    trade_no                VARCHAR(64)    NOT NULL,
+    listing_id              BIGINT         NOT NULL,
+    purchase_quote_id       BIGINT         NOT NULL,
+    buyer_user_id           BIGINT         NOT NULL,
+    seller_user_id          BIGINT         NOT NULL,
+    market_type             VARCHAR(24)    NOT NULL,
+    asset_type              VARCHAR(16)    NOT NULL,
+    gpu_model               VARCHAR(128)   NULL,
+    quantity                DECIMAL(20,3)  NOT NULL,
+    unit_price              DECIMAL(20,4)  NOT NULL,
+    price_currency          VARCHAR(16)    NOT NULL,
+    total_price             DECIMAL(20,4)  NOT NULL,
+    buyer_fee_card_hours    DECIMAL(20,3)  NOT NULL,
+    seller_fee_card_hours   DECIMAL(20,3)  NOT NULL,
+    cny_amount              DECIMAL(20,4)  NOT NULL DEFAULT 0.0000,
+    buyer_lot_id            BIGINT         NULL,
+    status                  VARCHAR(24)    NOT NULL DEFAULT 'COMPLETED',
+    completed_at            DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    create_time             DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_compute_card_trade_no (trade_no),
+    UNIQUE KEY uk_compute_card_trade_quote (purchase_quote_id),
+    INDEX idx_compute_card_trade_user (buyer_user_id, seller_user_id, create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='卡时销售、询价成交与闲置卡时转让成交记录';
+
+CREATE TABLE IF NOT EXISTS compute_card_hour_rfq (
+    id                      BIGINT         NOT NULL AUTO_INCREMENT,
+    rfq_no                  VARCHAR(64)    NOT NULL,
+    buyer_user_id           BIGINT         NOT NULL,
+    asset_type              VARCHAR(16)    NOT NULL,
+    gpu_model               VARCHAR(128)   NULL,
+    quantity                DECIMAL(20,3)  NOT NULL,
+    minimum_expires_at      DATETIME       NOT NULL,
+    requirements            VARCHAR(1000)  NOT NULL DEFAULT '',
+    status                  VARCHAR(24)    NOT NULL DEFAULT 'OPEN',
+    selected_quote_id       BIGINT         NULL,
+    closes_at               DATETIME       NOT NULL,
+    create_time             DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time             DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_compute_rfq_no (rfq_no),
+    INDEX idx_compute_rfq_market (status, asset_type, gpu_model, closes_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='买方发布、供应方竞争报价的卡时询价需求';
+
+CREATE TABLE IF NOT EXISTS compute_card_hour_rfq_quote (
+    id                      BIGINT         NOT NULL AUTO_INCREMENT,
+    quote_no                VARCHAR(64)    NOT NULL,
+    rfq_id                  BIGINT         NOT NULL,
+    supplier_user_id        BIGINT         NOT NULL,
+    listing_id              BIGINT         NOT NULL,
+    unit_price              DECIMAL(20,4)  NOT NULL,
+    price_currency          VARCHAR(16)    NOT NULL,
+    asset_expires_at        DATETIME       NOT NULL,
+    status                  VARCHAR(24)    NOT NULL DEFAULT 'ACTIVE',
+    expires_at              DATETIME       NOT NULL,
+    create_time             DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_compute_rfq_quote_no (quote_no),
+    INDEX idx_compute_rfq_quote_rfq (rfq_id, status, unit_price),
+    INDEX idx_compute_rfq_quote_supplier (supplier_user_id, status, create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='固定 30 分钟有效的供应方询价报价';
+
+CREATE TABLE IF NOT EXISTS compute_card_hour_fee_ledger (
+    id                      BIGINT         NOT NULL AUTO_INCREMENT,
+    reference_type          VARCHAR(32)    NOT NULL,
+    reference_id            VARCHAR(128)   NOT NULL,
+    payer_user_id           BIGINT         NOT NULL,
+    side                    VARCHAR(8)     NOT NULL,
+    fee_card_hours          DECIMAL(20,3)  NOT NULL,
+    create_time             DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_compute_fee_reference_side (reference_type, reference_id, side),
+    INDEX idx_compute_fee_payer (payer_user_id, create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='每笔固定 0.002 卡时、买卖双方各 0.001 的平台服务费账本';
+
+CREATE TABLE IF NOT EXISTS compute_card_hour_redemption (
+    id                      BIGINT         NOT NULL AUTO_INCREMENT,
+    redemption_no           VARCHAR(64)    NOT NULL,
+    buyer_user_id           BIGINT         NOT NULL,
+    supplier_user_id        BIGINT         NOT NULL,
+    node_id                 BIGINT         NOT NULL,
+    gpu_model               VARCHAR(128)   NOT NULL,
+    gpu_count               INT            NOT NULL,
+    start_time              DATETIME       NOT NULL,
+    end_time                DATETIME       NOT NULL,
+    buyer_public_key        MEDIUMTEXT     NULL,
+    booked_gpu_hours        DECIMAL(20,3)  NOT NULL,
+    rate_version            VARCHAR(32)    NOT NULL,
+    rate_multiplier         DECIMAL(12,4)  NOT NULL,
+    specific_hours_frozen   DECIMAL(20,3)  NOT NULL DEFAULT 0.000,
+    standard_hours_frozen   DECIMAL(20,3)  NOT NULL DEFAULT 0.000,
+    actual_gpu_hours        DECIMAL(20,3)  NULL,
+    actual_standard_hours   DECIMAL(20,3)  NULL,
+    status                  VARCHAR(24)    NOT NULL DEFAULT 'PENDING_DELIVERY',
+    delivery_ciphertext     MEDIUMTEXT     NULL,
+    delivery_note           VARCHAR(1000)  NOT NULL DEFAULT '',
+    usage_evidence          VARCHAR(2000)  NOT NULL DEFAULT '',
+    dispute_reason          VARCHAR(1000)  NOT NULL DEFAULT '',
+    delivered_at            DATETIME       NULL,
+    stop_reminded_at        DATETIME       NULL,
+    usage_submitted_at      DATETIME       NULL,
+    auto_confirm_at         DATETIME       NULL,
+    completed_at            DATETIME       NULL,
+    create_time             DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time             DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_compute_redemption_no (redemption_no),
+    INDEX idx_compute_redemption_buyer (buyer_user_id, status, create_time),
+    INDEX idx_compute_redemption_supplier (supplier_user_id, status, create_time),
+    INDEX idx_compute_redemption_auto_confirm (status, auto_confirm_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='卡时取出为真实 GPU 实例的人工交付、用量凭证与争议记录';
 
 CREATE TABLE IF NOT EXISTS compute_ledger (
     id                  BIGINT         NOT NULL AUTO_INCREMENT,
@@ -484,3 +706,18 @@ CREATE TABLE IF NOT EXISTS compute_gpu_node (
     INDEX idx_compute_gpu_node_supplier (supplier_user_id, status, create_time),
     INDEX idx_compute_gpu_node_review (status, create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='供应方托管 GPU 节点和人工验机记录';
+
+CREATE TABLE IF NOT EXISTS compute_market_price_history (
+    id                      BIGINT         NOT NULL AUTO_INCREMENT,
+    source                  VARCHAR(24)    NOT NULL,
+    gpu_model               VARCHAR(96)    NOT NULL,
+    quote_type              VARCHAR(24)    NOT NULL,
+    price_usd_per_gpu_hour  DECIMAL(16,6)  NOT NULL,
+    sample_size             INT            NOT NULL DEFAULT 0,
+    sampled_at              DATETIME       NOT NULL,
+    create_time             DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_compute_market_price_sample (source, gpu_model, sampled_at),
+    INDEX idx_compute_market_price_history (gpu_model, sampled_at),
+    INDEX idx_compute_market_price_cleanup (sampled_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='第三方 GPU 行情分钟级历史采样';

@@ -33,6 +33,6 @@ class ComputeDeliveryCryptoTest {
         return new ComputeDeliveryCrypto(new ComputeCenterProperties(
                 "", "kai.com", new BigDecimal("1.002"), new BigDecimal("1000.000"), secret,
                 "./target/test-private", false, false, false, "", "",
-                "http://127.0.0.1:8080/api/compute/proxy/v1"));
+                "http://127.0.0.1:8080/api/compute/proxy/v1", new BigDecimal("7.2000")));
     }
 }

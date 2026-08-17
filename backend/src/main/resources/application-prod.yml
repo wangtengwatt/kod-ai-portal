@@ -5,3 +5,6 @@ logging:
   level:
     com.kod: warn
     root: warn
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl

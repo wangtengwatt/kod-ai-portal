@@ -33,6 +33,7 @@ public class ComputeCenterProperties {
     private final String demoSupplierEmail;
     private final String demoBuyerEmail;
     private final String proxyBaseUrl;
+    private final BigDecimal defaultUsdCnyRate;
 
     public ComputeCenterProperties(
             @Value("${kod.compute.admin-emails:}") String adminEmails,
@@ -46,7 +47,8 @@ public class ComputeCenterProperties {
             @Value("${kod.compute.demo-seed-enabled:false}") boolean demoSeedEnabled,
             @Value("${kod.compute.demo-supplier-email:}") String demoSupplierEmail,
             @Value("${kod.compute.demo-buyer-email:}") String demoBuyerEmail,
-            @Value("${kod.compute.proxy-base-url:http://127.0.0.1:8080/api/compute/proxy/v1}") String proxyBaseUrl) {
+            @Value("${kod.compute.proxy-base-url:http://127.0.0.1:8080/api/compute/proxy/v1}") String proxyBaseUrl,
+            @Value("${kod.compute.usd-cny-rate:7.2000}") BigDecimal defaultUsdCnyRate) {
         this.adminEmails = csvSet(adminEmails);
         this.kaiStationDomains = csvSet(kaiStationDomains);
         this.defaultCardHourCnyRate = defaultCardHourCnyRate;
@@ -59,6 +61,7 @@ public class ComputeCenterProperties {
         this.demoSupplierEmail = demoSupplierEmail == null ? "" : demoSupplierEmail.trim().toLowerCase(Locale.ROOT);
         this.demoBuyerEmail = demoBuyerEmail == null ? "" : demoBuyerEmail.trim().toLowerCase(Locale.ROOT);
         this.proxyBaseUrl = trimTrailingSlash(proxyBaseUrl);
+        this.defaultUsdCnyRate = defaultUsdCnyRate;
     }
 
     public boolean isAdminEmail(String email) {

@@ -1,5 +1,6 @@
 package com.kod.service;
 
+import com.kod.common.BizException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,8 +12,8 @@ import org.springframework.stereotype.Service;
 /**
  * 邮件服务：发送 HTML 格式的验证码邮件。
  *
- * <p>邮件发送为尽力而为——发送失败不影响验证码在 Redis 中的存储，
- * 用户仍可通过日志（或后续的管理后台）获取验证码。</p>
+ * <p>验证码绝不写入日志。发送失败会返回服务不可用，避免把一个用户
+ * 无法收到的验证码写进 Redis 并触发限流。</p>
  */
 @Slf4j
 @Service
@@ -49,7 +50,8 @@ public class EmailService {
             mailSender.send(message);
             log.info("验证码邮件已发送，to={}", toEmail);
         } catch (Exception e) {
-            log.warn("发送验证码邮件失败（不影响注册），to={}, error={}", toEmail, e.getMessage());
+            log.warn("发送验证码邮件失败，to={}, error={}", toEmail, e.getMessage());
+            throw new BizException(503, "验证码邮件发送失败，请稍后重试", e);
         }
     }
 

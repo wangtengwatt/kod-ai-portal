@@ -13,6 +13,9 @@ public class LoginResponse {
     /** JWT token。 */
     private String token;
 
+    /** 可轮换的长效刷新令牌。 */
+    private String refreshToken;
+
     /** 是否为本次新注册的用户。 */
     private boolean newUser;
 

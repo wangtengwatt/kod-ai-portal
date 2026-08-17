@@ -23,6 +23,10 @@
         <mybatis-plus.version>3.5.9</mybatis-plus.version>
         <druid.version>1.2.24</druid.version>
         <jjwt.version>0.12.6</jjwt.version>
+        <!-- AWS SDK 2.49.x is compiled against Apache HttpClient 5.6/Core 5.4.
+             Spring Boot 3.3 manages older 5.3/5.2 artifacts that miss TlsSocketStrategy. -->
+        <httpclient5.version>5.6.2</httpclient5.version>
+        <httpcore5.version>5.4.3</httpcore5.version>
     </properties>
 
     <dependencies>
@@ -61,6 +65,47 @@
             <artifactId>jjwt-jackson</artifactId>
             <version>${jjwt.version}</version>
             <scope>runtime</scope>
+        </dependency>
+
+        <!-- Apple official verifier for StoreKit 2 signed transactions and server notifications. -->
+        <dependency>
+            <groupId>com.apple.itunes.storekit</groupId>
+            <artifactId>app-store-server-library</artifactId>
+            <version>5.2.0</version>
+        </dependency>
+
+        <!-- Server-side document extraction for the mobile/cloud knowledge base. -->
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-core</artifactId>
+            <version>3.3.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.tika</groupId>
+            <artifactId>tika-parsers-standard-package</artifactId>
+            <version>3.3.2</version>
+        </dependency>
+
+        <!-- Private S3-compatible object storage for cross-device image/video payloads. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.49.6</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5</artifactId>
+            <version>${httpclient5.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents.core5</groupId>
+            <artifactId>httpcore5</artifactId>
+            <version>${httpcore5.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents.core5</groupId>
+            <artifactId>httpcore5-h2</artifactId>
+            <version>${httpcore5.version}</version>
         </dependency>
 
         <!-- MyBatis-Plus：Spring Boot 3 专用 starter -->

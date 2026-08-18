@@ -1,0 +1,28 @@
+name: Backend and cloud worker
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Test Spring control plane
+        working-directory: backend
+        run: mvn --batch-mode test
+      - name: Test isolated worker
+        working-directory: worker
+        run: python3 -m unittest -v test_kod_worker.py
+      - name: Validate deployment composition
+        run: docker compose --env-file .env.example config --quiet
